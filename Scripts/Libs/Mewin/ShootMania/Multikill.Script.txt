@@ -1,0 +1,248 @@
+#Include "MathLib" as MathLib
+#Include "TextLib" as TextLib
+#Include "Libs/Nadeo/Top2.Script.txt" as Top
+#Include "Libs/Mewin/Common/Lang.Script.txt" as Lang
+#Include "Libs/Mewin/ShootMania/Sound.Script.txt" as Sound
+
+// ---- message priorities ---- //
+#Const	FirstBloodPriority		25
+#Const	SpreePriority			20
+#Const	HeadshotPriority		20
+#Const	MultikillPriority		25
+
+declare Integer MinimumPublicCount;
+declare Integer MultiKillDelay;
+declare Boolean FirstBloodDone;
+
+Text PlayerName(CSmPlayer Player)
+{
+	if (!UseClans)
+	{
+		return Player.Name;
+	}
+	return "$" ^ TextLib::ColorToText(Teams[Player.CurrentClan - 1].ColorPrimary) ^ Player.Name;
+}
+
+Void Init(Boolean MultiLang)
+{
+	MinimumPublicCount = 3;
+	MultiKillDelay = 2500;
+	FirstBloodDone = False;
+	
+	Lang::LoadLanguage("Translations/Multikill/en.xml");
+	
+	if (MultiLang)
+	{
+		//TODO: ...
+	}
+}
+
+Void ResetFirstBlood()
+{
+	FirstBloodDone = False;
+}
+
+Void ResetSpree(CSmPlayer Player)
+{
+	declare KillingSpree for Player = 0;
+	declare DeathSpree for Player = 0;
+	declare HeadShots for Player = 0;
+		
+	KillingSpree = 0;
+	DeathSpree = 0;
+	HeadShots = 0;
+}
+
+Void ResetSprees()
+{
+	foreach (Player in Players)
+	{
+		ResetSpree(Player);
+		declare RecordSpree for Player = 0;
+		declare RecordMulti for Player = 0;
+		declare AllHeadShots for Player = 0;
+		
+		RecordSpree = 0;
+		RecordMulti = 0;
+		AllHeadShots = 0;
+	}
+	
+	foreach (Player in BotPlayers)
+	{
+		ResetSpree(Player);
+	}
+}
+
+Void OnPlayerKill(CSmPlayer Player)
+{
+	if (!FirstBloodDone)
+	{
+		FirstBloodDone = True;
+		Lang::SendStatusMessage("special.firstbloodPublic", 2000, FirstBloodPriority, PlayerName(Player), "");
+		
+		if (!Player.IsBot)
+		{
+			Sound::PlaySound(Player, "Multikill/Special.Firstblood");
+			Lang::SendBigMessage(Player, "special.firstbloodPrivate", 1000, FirstBloodPriority);
+		}
+	}
+	
+	if (Player == Null || Player.IsFakePlayer || Player.IsBot)
+	{
+		return;
+	}
+	declare LastKill for Player = 0;
+	declare MultiKill for Player = 0;
+	declare KillingSpree for Player = 0;
+	declare DeathSpree for Player = 0;
+	
+	DeathSpree = 0;
+	KillingSpree += 1;
+	
+	if (LastKill + MultiKillDelay > Now)
+	{
+		MultiKill += 1;
+	}
+	else
+	{
+		MultiKill = 1;
+	}
+	LastKill = Now;
+	
+	if (MultiKill > 1)
+	{
+		if (MultiKill >= MinimumPublicCount)
+		{
+			declare Text MultikillText;
+			if (MultiKill < 6)
+			{
+				MultikillText = "multi.public" ^ MultiKill;
+			}
+			else
+			{
+				MultikillText = "multi.public6";
+			}
+			Lang::SendStatusMessage(MultikillText, 2000, MultikillPriority + MultiKill, PlayerName(Player), "");
+		}
+		declare Text MultikillText;
+		if (MultiKill < 6)
+		{
+			MultikillText = "multi.private" ^ MultiKill;
+		}
+		else
+		{
+			MultikillText = "multi.private6";
+		}
+		Lang::SendBigMessage(Player, MultikillText, 2000, MultikillPriority + MultiKill);
+		Sound::PlaySound(Player, "Multikill/Multi." ^ MultiKill);
+		
+		//Top
+		declare RecordMulti for Player = 0;
+		if (MultiKill > RecordMulti)
+		{
+			RecordMulti = MultiKill;
+			Top::SetRecord(Player, "Multi", TextLib::ToText(RecordMulti), -RecordMulti);
+		}
+	}
+	if (KillingSpree % 5 == 0 && KillingSpree <= 25)
+	{
+		Lang::SendBigMessage(Player, "spree.private" ^ KillingSpree, 2000, SpreePriority + KillingSpree);
+		
+		Lang::SendStatusMessage("spree.public" ^ KillingSpree, 2000, SpreePriority + KillingSpree, PlayerName(Player), "");
+		Sound::PlaySound(Player, "Multikill/Spree." ^ KillingSpree);
+	}
+	else if (KillingSpree % 5 == 0)
+	{
+			
+		Lang::SendBigMessage("spree.publicMore", 2000, SpreePriority + KillingSpree, PlayerName(Player), "" ^ KillingSpree);
+	}
+	
+	//Top
+	declare RecordSpree for Player = 0;
+	if (KillingSpree > RecordSpree)
+	{
+		RecordSpree = KillingSpree;
+		Top::SetRecord(Player, "Spree", TextLib::ToText(RecordSpree), -RecordSpree);
+	}
+}
+
+Void OnPlayerArmorEmpty(CSmPlayer Player)
+{
+	declare KillingSpree for Player = 0;
+	declare DeathSpree for Player = 0;
+	declare HeadShots for Player = 0;
+	
+	HeadShots = 0;
+	KillingSpree = 0;
+	DeathSpree += 1;
+}
+
+Void PreCacheSounds()
+{
+	for (I, 2, 6)
+	{
+		Sound::PreCacheSound("Multikill/Multi." ^ I);
+	}
+	
+	for (I, 5, 25, 5)
+	{
+		Sound::PreCacheSound("Multikill/Spree." ^ I);
+	}
+	
+	Sound::PreCacheSound("Multikill/Special.Headshot");
+	Sound::PreCacheSound("Multikill/Special.Headhunter");
+	Sound::PreCacheSound("Multikill/Special.Firstblood");
+}
+
+Void OnHeadShot(CSmPlayer Player)
+{
+	if (Player.IsBot) return;
+	declare HeadShots for Player = 0;
+	
+	HeadShots += 1;
+	if (HeadShots == 15)
+	{
+		Lang::SendBigMessage(Player, "special.headhunter", 2000, HeadshotPriority + SpreePriority);
+		Sound::PlaySound(Player, "Multikill/Special.Headhunter");
+	}
+	else
+	{
+		Lang::SendBigMessage(Player, "special.headshot", 2000, HeadshotPriority);
+		Sound::PlaySound(Player, "Multikill/Special.Headshot");
+	}
+	
+	//Top
+	declare AllHeadShots for Player = 0;
+	AllHeadShots += 1;
+	Top::SetRecord(Player, "HeadShot", TextLib::ToText(AllHeadShots), -AllHeadShots);
+}
+
+Real Skalar(Vec3 _Vec1, Vec3 _Vec2)
+{
+	return _Vec1[0]*_Vec2[0] + _Vec1[1]*_Vec2[1] + _Vec1[2]*_Vec2[2];
+}
+
+Boolean IsHeadShot(CSmModeEvent _Event)
+{
+	if (_Event == Null || _Event.Shooter == Null || _Event.Victim == Null) return False;
+	if (_Event.WeaponNum != This.GetWeaponNum(CSmMode::EWeapon::Laser)) return False;
+	
+	declare HeadPosi = <_Event.Victim.Position[0]+_Event.Victim.AimDirection[0]*0.2,
+						_Event.Victim.Position[1]+1.5,
+						_Event.Victim.Position[2]+_Event.Victim.AimDirection[2]*0.2>;
+	declare ShootPosi = _Event.Shooter.Position+<0.0, 1.35, 0.0>;
+	declare ShootDir = _Event.Shooter.AimDirection;
+	
+	declare a1 = Skalar(ShootDir, ShootPosi);
+	declare a2 = Skalar(ShootDir, ShootDir);
+	declare a3 = Skalar(ShootDir, -HeadPosi);
+	
+	declare gamma = (a1+a3)/(-1*a2);
+	declare stutz = ShootPosi + (gamma*ShootDir);
+	
+	declare distance = MathLib::Distance(HeadPosi, stutz);
+	if (distance > 0.2) return False;
+
+	
+	return True;
+}

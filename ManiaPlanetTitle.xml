@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<maniaplanet_title version="4">
+	<id>Traditional@niarfman</id>
+	<name>Traditional</name>
+	<desc>Includes some traditional shooter game modes like Capture the Flag and Domination.
+Created by Mewin</desc>
+	<url>traditional</url>
+	<base>SMStorm</base>
+	<packaging>
+		<image name="PackImage.jpg"/>
+		<logos name="Logos.png"/>
+		<collection></collection>
+		<sortindex>100</sortindex>
+		<station_manialink url="file://Media/Manialinks/Traditional/Station.xml"/>
+		<boxcase_manialink url=""/>
+		<station_noquickenter>true</station_noquickenter>
+	</packaging>
+	<menu>
+		<background_image name="MenuBg.jpg"/>
+		<background_replay name=""/>
+		<header name="MenuHeader.png"/>
+		<music name=""/>
+		<manialink url=""/>
+		<color rgba=""/>
+		<background_img name=""/>
+	</menu>
+	<music folder=""/>
+	<editor>
+		<maptype name=""/>
+		<simple_editor_map name=""/>
+		<internalitems/>
+	</editor>
+	<solo>
+		<!-- either campaign or playlist-->
+		<mode name=""/>
+		<datapack name=""/>
+		<default_maprecord_type>-1</default_maprecord_type>
+		<score_context>
+			<name></name>
+			<maprecord_type>-1</maprecord_type>
+			<medals_enabled>true</medals_enabled>
+			<compute_medals_from_maprecord>false</compute_medals_from_maprecord>
+			<author_medals_enabled>true</author_medals_enabled>
+			<skillpoints_enabled>false</skillpoints_enabled>
+		</score_context>
+		<campaign num="0">
+			<playlist name=""/>
+			<mode name=""/>
+			<score_context></score_context>
+			<official_record_enabled>false</official_record_enabled>
+			<disable_unlock_system>false</disable_unlock_system>
+			<maps folder=""/>
+		</campaign>
+	</solo>
+	<network>
+		<mode name=""/>
+		<playlist name=""/>
+	</network>
+	<splitscreen>
+		<mode name=""/>
+		<playlist name=""/>
+	</splitscreen>
+	<folders>
+		<folder name="Items" public="false" internal="false"/>
+		<folder name="Items\Bomb" public="false" internal="false"/>
+		<folder name="Items\CTF" public="false" internal="false"/>
+		<folder name="Items\Meshes" public="false" internal="false"/>
+		<folder name="Items\SMCommon" public="false" internal="false"/>
+		<folder name="Maps\Traditional" public="true" internal="false"/>
+		<folder name="Media\Images\Traditional" public="true" internal="false"/>
+		<folder name="Media\Manialinks\Traditional" public="true" internal="false"/>
+		<folder name="Media\Sounds" public="true" internal="false"/>
+		<folder name="Media\Translations" public="false" internal="false"/>
+		<folder name="Scripts\Libs\Mewin" public="false" internal="false"/>
+		<folder name="Scripts\Modes" public="true" internal="false"/>
+		<folder name="Scripts\MapTypes" public="true" internal="false"/>
+	</folders>
+	<mod name=""/>
+	<title_version>0.2</title_version>
+	<gameplay_features>0</gameplay_features>
+	<menu_style name=""/>
+	<PlayerItemId/>
+	<download_url>https://ssm.niarfland.fr/ManiaScript/Traditional@niarfman.Title.Pack.Gbx</download_url>
+	<allowed_client_title_version></allowed_client_title_version>
+	<maker></maker>
+	<player_model></player_model>
+	<scriptcloud_enabled>false</scriptcloud_enabled>
+	<limit_camera_fov>false</limit_camera_fov>
+	<use_hmd>false</use_hmd>
+	<unlock_features>0</unlock_features>
+	<hud3dfont name=""/>
+	<files/>
+</maniaplanet_title>

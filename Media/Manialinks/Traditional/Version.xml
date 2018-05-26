@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<frame>
+	<script><!--
+		if (Version > 20020003)
+		{
+			MustUpdate = True;
+		}
+	--></script>
+</frame>

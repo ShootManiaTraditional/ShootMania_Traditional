@@ -1,0 +1,2537 @@
+#RequireContext CSmMode 
+#Include "MathLib" as MathLib
+#Include "TextLib" as TextLib
+
+//Basic Includes
+#Include "Libs/Nadeo/ShootMania/SM.Script.txt" as SM
+#Include "Libs/Nadeo/Mode.Script.txt"
+//Game Includes
+#Include "Libs/Nadeo/Victory.Script.txt" as Victory
+#Include "Libs/Nadeo/Message.Script.txt" as Message
+#Include "Libs/Nadeo/ShootMania/Score.Script.txt" as Score
+#Include "Libs/Nadeo/ShootMania/Airshot.Script.txt" as Airshot
+#Include "Libs/Nadeo/ShootMania/WarmUpSimple.Script.txt" as WarmUp
+#Include "Libs/Nadeo/ShootMania/XmlRpc.Script.txt" as XmlRpc
+//UI Includes
+#Include "Libs/Nadeo/Top2.Script.txt" as Top
+#Include "Libs/Nadeo/TabsServer.Script.txt" as Tabs
+#Include "Libs/Nadeo/ShootMania/ScoresTable.Script.txt" as ScoresTable
+#Include "Libs/Nadeo/ShootMania/SpawnScreen.Script.txt" as SpawnScreen
+#Include "Libs/Nadeo/Interface.Script.txt" 				as Slider
+#Include "Libs/Mewin/ShootMania/StatusEffects.Script.txt" as StatusEffects
+//#Include "Libs/Mewin/UserSettings.Script.txt" as UserSettings
+
+//#Include "Libs/Mewin/ShootMania/Radar.Script.txt" as Radar
+#Include "Libs/Mewin/ShootMania/Multikill.Script.txt" as Multikill
+#Include "Libs/Mewin/ShootMania/Sound.Script.txt" as Sound
+#Include "Libs/Mewin/Common/Lang.Script.txt" as Lang
+#Include "Libs/Mewin/ShootMania/Pickups.Script.txt" as Pickup
+#Include "Libs/Mewin/ShootMania/Minigames.Script.txt" as Games
+//#Include "Libs/Mewin/Common/ServerList.Script.txt" as ServerList
+
+// Game Rules
+#Setting 	WinLimit					2				as "rounds to win"
+#Setting	ScoreLimit					3				as "score limit"
+#Setting	RoundLimit					3				as "round limit"
+#Setting	TimeLimit					300000			as "time limit (in ms)"
+#Setting	FlagResetTime				20000			as "time until flag resets (in ms)"
+#Setting	OvertimeMode				1				as "overtime(0=normal,1=win on cap,2=none)"
+#Setting	TeamDamage					0				as "teamdamage(0=no,1=yes,2=reflect)"
+#Setting	WarmUpDuration				0				as "warmup duration"
+#Setting	ItemRespawnTime				60000			as "item respawn time"
+// Weapons & Armor
+#Setting	WeaponMode					2				as "weapon(0=normal,1=rocket,2=laser,3=arrow,4=nucleus,5=random,6=map,7=choosable)"	
+#Setting	AmmoGain					1.				as "ammo gain factor"
+#Setting	AmmoMax						4				as "maximum ammo"
+#Setting	InactiveWeaponReload		True			as "reload inactive weapons"
+#Setting	LimitAmmo					True			as "limit ammo"
+#Setting	ArmorMax					200				as "default armor"
+#Setting	ArmorGainMax				400				as "maximum armor"
+#Setting	BotsFill					4				as "fill up bot count"
+#Setting	BotSkill					5				as "Bot skill (1-10)"
+//#Setting	MinimumPlayers				1				as "minimum players to start game"
+
+// ------- Additional Settings - //
+#Const		KillLeavers					True			//kill map leavers
+#Const		SelfDamage					False			//damage yourself (i.e. with nucleus)
+#Const		UITickPeriod				50				//period for ui ticks -> higher values lower cpu usage
+#Const		RespawnTime					6001			//respawn time (in ms; min. 6001)
+#Const		AutoBalance					True
+#Const		EnableMultiLang				True			//enable multiple languages
+#Const		UpdateChannel				"none"			//values: release, dev, none; does not work yet
+#Const		AdminLogins					[""] //allow these users to access the ctf admin panel -> this doesnt exist yet ;)
+#Const		BotUpdateInterval			200				//interval for bots to update their target
+#Const		FlagUpdateInterval			2				//interval for flag to update when on player
+#Const		BotStuckKillTime			5000			//time for a bot to get eliminited when stuck
+#Const		DoubleDamageTime			45000			//duration of the double damage pickup
+#Const		FlagZoneSize				20				//zone around flag->players get atk/def score for hits
+#Const		RespawnModifier				[				//factor for the respawn times of specific items
+											1 => 1., 	//Rocket (def 1.)
+											2 => 1., 	//Laser (def 1.)
+											3 => 1., 	//Nucleus (def 1.)
+											4 => 1., 	//Arrow (def 1.)
+											5 => 1.5,	//Armor (def 1.5)
+											6 => 2.		//DoubleDamage (def 2.)
+										]
+#Const		PlayerWaitTime				30000			//time to wait until ending a match because of missing players
+										
+//#Command	MG_EndMG					(Real)			as "end current minigame in ... s"
+
+// ------- Map Type ------------ //
+#Const		CompatibleMapTypes			"CTFArena"
+
+// ------- Scores ---------------//
+#Const		TakeScore					4				//as score for taking the enemy flag
+#Const		CaptureScore				6				//as score for capturing the enemy flag
+#Const		ReturnScore					5				//as score for returning the own flag
+#Const		KillScore					1				//as score for hit
+
+/// ------ Weapon Setup ------- /// Not implemented yet
+#Const		ForceAmmo					False			//use ammo values in the settings for each weapon
+#Const		RocketFactor				1.0				//factor for ammo amount for rocket
+#Const		LaserFactor					0.25			//... for laser
+#Const		NucleusFactor				0.5				//... for nucleus
+#Const		ArrowFactor					0.75			//... for arrow
+#Const		RocketGainFactor			1.				//factor for ammo regenaration for rocket
+#Const		LaserGainFactor				1.5				//... for laser
+#Const		NucleusGainFactor			0.75			//... for nucleus
+#Const		ArrowGainFactor				1.				//... for arrow
+#Const		FallbackWeaponMode			0				//fallback mode (if WeaponMode == 6, but no weapons defined on map)
+
+// ------- Message Priorities -- ///
+#Const		PriorityReset				11
+#Const 		PriorityDrop				12
+#Const		PriorityTake				14
+#Const		PriorityReturn				13
+#Const		PriorityCapture				14
+#Const		PriorityOvertime			20
+#Const		PriorityHint				10
+
+// ------- Constants ----------- // Do not modify
+#Const		Debug						False
+/// ------ Informational ------ ///
+#Const		VersionNum					"2.0-b1.3"
+#Const		Version						"2013-12-13"
+/// ------ Model Paths -------- ///
+#Const		RedFlagPath					"CTF/RedFlag.Item.gbx"
+#Const		BlueFlagPath				"CTF/BlueFlag.Item.gbx"
+/// ------ Image Paths -------- ///
+#Const		C_FlagImage					"file://Media/Images/Traditional/CTF-Flag.png"
+#Const		C_FlagDroppedImage			"file://Media/Images/Traditional/CTF-Flag-Ground.png"
+#Const		C_FlagCarriedImage			"file://Media/Images/Traditional/CTF-Flag-Carried.png"
+
+***EndTime***
+***
+if(TimeLimit > -1)
+{
+	EndTime = StartTime + TimeLimit;
+}
+***
+
+***Rules***
+***
+declare ModeName = "Capture the Flag";
+declare ModeRules = "Two teams\n\n- Try to get to the enemy pole to grab the flag and bring it back to your flag.\n- The player who carries the flag is highlighted and the flag is marked.\n- You can only return the flag if your flag is at your base.\n- If the one who has the flag dies, he drops the flag at his position.\n- It is reset after some seconds.\n- Match ends when either the score limit or the time limit is reached.\n- If both teams have equals scores at the end, winner is decided like this:\n  - If only on team has the enemy flag at this moment this team wins.\n  - Otherwise overtime starts. During overtime the teams wins, that reaches his targeted pole first (Yours if you have the flag, the enemies if you don't.) or if the flag carrier is eleminated.";
+***
+
+***NewPlayer***
+***
+Tabs::UseTabs(UI, "ScoresTab");
+Tabs::AlwaysShowScore(UI, True);
+ScoresTable::RestoreCustomScores(Player);
+Slider::ShowSlider(Player, 0);
+Slider::HideSlider(Player, 5000);
+***
+
+***NewSpectator***
+***
+Slider::ShowSlider(Player, 0);
+***
+
+***Update***
+***
+Message::Loop();
+StatusEffects::Loop();
+Pickup::Loop();
+/*if (Players.count < MinimumPlayers && OldEndTime < -1)
+{
+	OldEndTime = EndTime;
+	EndTime = Now + PlayerWaitTime;
+}
+else if (Players.count >= MinimumPlayers && OldEndTime > -2)
+{
+	EndTime = OldEndTime;
+	OldEndTime = -2;
+}*/
+//ServerList::Loop();
+***
+
+/****UITick***
+***
+log("");
+****/
+
+***InitServer***
+***
+UIManager.UIAll.ScreenIn3dHideScoreSummary = False;
+UIManager.UIAll.ScreenIn3dHideVersus = False;
+//ServerList::RegisterServer("""&version={{{VersionNum}}}""");
+***
+
+***MatchBegin***
+***
+declare OldEndTime = -2;
+/*while (Players.count < MinimumPlayers)
+{
+	UIManager.UIAll.OverlayScoreSummary = False;
+	UIManager.UIAll.ScreenIn3dHideScoreSummary = True;
+	UIManager.UIAll.ScreenIn3dHideVersus = True;
+	G_BlockSpawnQueue = [ 1 => Ident[], 2 => Ident[] ];
+	UpdateBlockSpawnQueue(1); //Fill spawn queue for minigame to start
+	Games::Minigame_FlagRun(SM::GetPole("Goal", 2).Id, SM::GetPole("Goal", 1).Id, G_BlockSpawnQueue[1], MinimumPlayers);
+}*/
+UIManager.UIAll.ScreenIn3dHideScoreSummary = False;
+UIManager.UIAll.ScreenIn3dHideVersus = False;
+if (WeaponMode == 6 && FallbackWeaponMode != 6)
+{
+	NeedFallback = !Pickup::MapHasPickups([1, 2, 3, 4]);
+	
+	if (NeedFallback)
+	{
+		foreach (Spawn in BlockSpawns)
+		{
+			if (Spawn.Order > 2)
+			{
+				NeedFallback = False;
+				break;
+			}
+		}
+	}
+	
+	if (NeedFallback)
+	{
+		log("INFO: Falling back to weapon mode " ^ FallbackWeaponMode);
+	}
+}
+	
+if (!NeedFallback)
+{
+	Pickup::SetLimitAmmo(LimitAmmo);
+}
+else
+{
+	Pickup::SetLimitAmmo(False);
+}
+
+Slider::CreateSlider();
+Slider::SetSliderAnimation(<-210., 40.>, <-160., 40.>);
+Slider::AddSlide(1, "Top", _("Top Hit"), "Hit");
+Slider::AddSlide(2, "Top", _("Top Attack"), "Atk");
+Slider::AddSlide(3, "Top", _("Top Defense"), "Def");
+UIManager.UIAll.ScoreSummary_MatchPoints1 = 0;
+UIManager.UIAll.ScoreSummary_MatchPoints2 = 0;
+
+//Had to put this here, because .......... P0TatO!
+//LayerSettings.ManialinkPage = UserSettings::CreateLayerBindings(["Settings", "DropFlag", "CtfMarker"], ["Bindings", "Drop Flag", "Toggle Markers"]);
+***
+
+***MatchEnd***
+***
+Slider::DestroySlider();
+***
+
+***RoundBegin***
+***
+Message::CleanAllMessages();
+foreach (Player in AllPlayers)
+{
+	Pickup::RemoveML(Player);
+}
+UIManager.UIAll.OverlayScoreSummary = True;
+UIManager.UIAll.ScoreSummary_Points1 = 0;
+UIManager.UIAll.ScoreSummary_Points2 = 0;
+//ServerList::UpdateRoundInfo("");
+***
+
+***EndRound***
+***
+StartTime = -1;
+EndTime = -1;
+
+ObjectDestroyAll();
+XmlRpc::EndRound(Round);
+Message::CleanAllMessages();
+foreach (Player in AllPlayers)
+{
+	Pickup::RemoveML(Player);
+	Slider::ShowSlider(Player, 0);
+	if(!Player.IsFakePlayer)
+	{
+		declare PlayerUI <=> UIManager.GetUI(Player);
+	
+		Sound::AddUILayer(Player);
+	}
+}
+***
+
+declare Ident SettingsLayerId;
+declare Ident[][Integer] G_BlockSpawnQueue;	///< A list of spawn points to use
+declare Integer[Integer] MapSidesIndices;
+
+declare CSmBlockPole[Integer] Poles;
+declare Integer[Integer] FlagDropTimes;
+declare Ident[Integer] FlagCarrier;
+declare Integer[Integer] Captures;
+declare Ident[Integer] FlagModels;
+declare CSmObject[Integer] FlagObjects;
+declare Ident[Integer] PickupItems;
+declare CSmPlayer[] BotPlayers;
+declare Integer[Integer] BotCount;
+declare Boolean NeedFallback;
+
+Void UpdatePlayerVelocity(CSmPlayer Player) //Doesnt work properly :/ Still looking for a solution
+{
+	if (Player.SpawnStatus != CSmPlayer::ESpawnStatus::Spawned) return;
+	declare LastPos for Player = Player.Position;
+	declare Vec3 Velocity for Player;
+	declare LastUpdate for Player = Now;
+	
+	Velocity = (Player.Position - LastPos) * ((Now - LastUpdate) / 100000.);
+	LastPos = Player.Position;
+}
+
+Integer BotNum(CSmPlayer Bot)
+{
+	declare BotNum for Bot = -1;
+	
+	if (BotNum < 0)
+	{
+		for (I, 0, BotPlayers.count - 1)
+		{
+			if (BotPlayers[I] == Bot)
+			{
+				BotNum = I;
+				break;
+			}
+		}
+	}
+	
+	return BotNum + 1;
+}
+
+Text PlayerName(CSmPlayer Player, Integer Clan)
+{
+	declare Name = Player.Name;
+	if (Player.IsBot)
+	{
+		Name ^= " $z$s#" ^ BotNum(Player);
+	}
+	if (!UseClans || Clan < 1 || Clan > 2)
+	{
+		return Name;
+	}
+	return "$" ^ TextLib::ColorToText(Teams[Clan - 1].ColorPrimary) ^ Name;
+}
+
+Text PlayerName(CSmPlayer Player)
+{
+	return PlayerName(Player, Player.CurrentClan);
+}
+
+Void UpdateBlockSpawnQueue(Integer Clan)
+{	
+	foreach (BlockSpawn in BlockSpawns)
+	{
+		declare BlockTeam = (BlockSpawn.Order - 1) % 2;
+		if (BlockTeam + 1 == Clan)
+		{
+			G_BlockSpawnQueue[Clan].add(BlockSpawn.Id);
+		}
+	}
+}
+
+Integer RealRandom (Integer Min, Integer Max)
+{
+	declare Rand = MathLib::Rand(Min, Max);
+	
+	foreach(Player in Players)
+	{
+		Rand += MathLib::NearestInteger(Player.Position.X * Player.Position.Y * Player.Position.Z);
+	}
+	return Min + (Rand % (Max - Min + 1));
+}
+
+CSmMode::EWeapon RandomWeapon(Integer Order)
+{
+	declare Data = Order - 1;
+	declare Boolean AllowRocket;
+	declare Boolean AllowLaser;
+	declare Boolean AllowNucleus;
+	declare Boolean AllowArrow;
+	
+	if (Data >= 16)
+	{
+		AllowArrow = True;
+		Data -= 16;
+	}
+	
+	if (Data >= 8)
+	{
+		AllowNucleus = True;
+		Data -= 8;
+	}
+	
+	if (Data >= 4)
+	{
+		AllowLaser = True;
+		Data -= 4;
+	}
+	
+	if (Data >= 2)
+	{
+		AllowRocket = True;
+	}
+	
+	if (!AllowRocket && !AllowLaser && !AllowNucleus && !AllowArrow)
+	{
+		return CSmMode::EWeapon::Rocket;
+	}
+	else
+	{
+		declare Integer Rand;
+		while (True)
+		{
+			yield;
+			Rand = RealRandom(0, 3);
+			if (Rand == 0 && AllowRocket)
+			{
+				return CSmMode::EWeapon::Rocket;
+			}
+			else if (Rand == 1 && AllowLaser)
+			{
+				return CSmMode::EWeapon::Laser;
+			}
+			else if (Rand == 2 && AllowNucleus)
+			{
+				return CSmMode::EWeapon::Nucleus;
+			}
+			else if (Rand == 3 && AllowArrow)
+			{
+				return CSmMode::EWeapon::Arrow;
+			}
+		}
+	}
+	
+	return CSmMode::EWeapon::Rocket;
+}
+
+CSmPlayer _CreateBotPlayer(Integer Clan, Integer time)
+{
+					
+	declare Weapon = CSmMode::EWeapon::Rocket;
+	declare AllowSwitch = False;
+	if (G_BlockSpawnQueue[MapSidesIndices[Clan]].count < 1)
+		UpdateBlockSpawnQueue(MapSidesIndices[Clan]);
+	declare SpawnId = G_BlockSpawnQueue[MapSidesIndices[Clan]][MathLib::Rand(0, G_BlockSpawnQueue[MapSidesIndices[Clan]].count - 1)];
+	declare Tmp = G_BlockSpawnQueue[MapSidesIndices[Clan]].remove(SpawnId);
+	
+	switch(WeaponMode)
+	{
+		case 1:
+			Weapon = CSmMode::EWeapon::Rocket;
+		case 2:
+			Weapon = CSmMode::EWeapon::Laser;
+		case 3:
+			Weapon = CSmMode::EWeapon::Arrow;
+		case 4:
+			Weapon = CSmMode::EWeapon::Nucleus;
+		case 5:
+			Weapon = RandomWeapon(31); //any weapon
+		case 6:
+			Weapon = RandomWeapon(BlockSpawns[SpawnId].Order);
+		default:
+			AllowSwitch = True;
+	}
+	
+	declare MaxAmmo = AmmoMax;
+	declare Gain = AmmoGain;
+	
+	if (!ForceAmmo)
+	{
+		declare Factor = 1.0;
+		switch(Weapon)
+		{
+			case CSmMode::EWeapon::Rocket:
+				Factor = RocketFactor;
+			case CSmMode::EWeapon::Laser:
+				Factor = LaserFactor;
+			case CSmMode::EWeapon::Nucleus:
+				Factor = NucleusFactor;
+			case CSmMode::EWeapon::Arrow:
+				Factor = ArrowFactor;
+		}
+		MaxAmmo = MathLib::NearestInteger(MaxAmmo * Factor);
+		if (MaxAmmo < 1)
+		{
+			MaxAmmo = 1;
+		}
+	}
+	
+	switch(Weapon)
+	{
+		case CSmMode::EWeapon::Rocket:
+			Gain *= RocketGainFactor;
+		case CSmMode::EWeapon::Laser:
+			Gain *= LaserGainFactor;
+		case CSmMode::EWeapon::Nucleus:
+			Gain *= NucleusGainFactor;
+		case CSmMode::EWeapon::Arrow:
+			Gain *= ArrowGainFactor;
+	}
+	
+	declare Ident ModelId;
+	declare CSmPlayer Player;
+	
+	Player = CreateBotPlayer(ModelId, Clan, ArmorMax, BlockSpawns[SpawnId], time);
+	Pickup::OnPlayerSpawn(Player, Weapon, MaxAmmo, ArmorMax, Gain, AllowSwitch);
+	
+	SetPlayerWeapon(Player, Weapon, AllowSwitch);
+	SetPlayerAmmoMax(Player, Weapon, MaxAmmo);
+	
+	Player.ArmorMax = ArmorMax;
+	Player.AmmoGain = Gain;
+	
+	declare Boolean HasWeaponRocket for Player;
+	declare Boolean HasWeaponLaser for Player;
+	declare Boolean HasWeaponNucleus for Player;
+	declare Boolean HasWeaponArrow for Player;
+	
+	HasWeaponRocket = False;
+	HasWeaponLaser = False;
+	HasWeaponNucleus = False;
+	HasWeaponArrow = False;
+	
+	switch(Weapon)
+	{
+		case CSmMode::EWeapon::Rocket:
+			HasWeaponRocket = True;
+		case CSmMode::EWeapon::Laser:
+			HasWeaponLaser = True;
+		case CSmMode::EWeapon::Nucleus:
+			HasWeaponNucleus = True;
+		case CSmMode::EWeapon::Arrow:
+			HasWeaponArrow = True;
+	}
+	
+	Player.Driver.Behaviour = CSmPlayerDriver::ESmDriverBehaviour::Scripted;
+	//BotSkill
+	Player.Driver.Accuracy = 0.5 + BotSkill * 0.05;
+	Player.Driver.ReactionTime = 1100 - BotSkill * 100;
+	Player.Driver.AggroRadius = 15. + BotSkill;
+	
+	if (BotCount.existskey(Clan))
+	{
+		BotCount[Clan] = BotCount[Clan] + 1;
+	}
+	else
+	{
+		BotCount[Clan] = 1;
+	}
+	
+	return Player;
+}
+
+Void UpdateBotCount()
+{
+	for (Clan, 1, 2)
+	{
+		if (!BotCount.existskey(Clan))
+		{
+			BotCount[Clan] = 0;
+		}
+		if (ClansNbPlayers[Clan] + BotCount[Clan] < BotsFill)
+		{
+			BotPlayers.add(_CreateBotPlayer(Clan, Now + RespawnTime));
+		}
+		else if (ClansNbPlayers[Clan] + BotCount[Clan] > BotsFill && BotCount[Clan] > 0)
+		{
+			declare CSmPlayer Bot2Delete = Null;
+			foreach (Player in BotPlayers)
+			{
+				if (Player.CurrentClan == Clan && (Bot2Delete == Null || Bot2Delete.Id == FlagCarrier[Clan]))
+				{
+					Bot2Delete = Player;
+				}
+			}
+			if (Bot2Delete != Null)
+			{
+				declare tmp = BotPlayers.remove(Bot2Delete);
+				DestroyBotPlayer(Bot2Delete);
+				BotCount[Clan] -= 1;
+			}
+		}
+	}
+}
+
+Real Min(Real R1, Real R2)
+{
+	if (R1 > R2)
+	{
+		return R2;
+	}
+	return R1;
+}
+
+Void DropFlag(CSmPlayer Player, Integer Clan, Vec3 Pos)
+{
+	declare FlagDropTime for Player = 0;
+	
+	declare Integer LockedTill for FlagObjects[Clan];
+	declare Vec3 Velocity for Player;
+	
+	LockedTill = Now + 100;
+	
+	FlagDropTime = Now;
+	FlagDropTimes[3 - Clan] = Now;
+	FlagCarrier[Clan] = NullId;
+	
+  Lang::SendBigMessage("flag.drop", 2000, PriorityDrop, PlayerName(Player, Clan), Teams[2 - Clan].ColorizedName);
+	Sound::PlaySoundClan("Flag.Drop.Ally", 3 - Clan);
+	Sound::PlaySoundClan("Flag.Drop.Enemy", Clan);
+	FlagObjects[3 - Clan].SetPositionAndVel(Pos, Velocity * 0.5);
+	
+	if (Player.IsBot)
+	{
+		Player.Driver.AggroRadius *= 2;
+	}
+	else
+	{
+		declare netwrite Boolean HasFlag for UIManager.GetUI(Player);
+		
+		HasFlag = False;
+	}
+}
+
+Void DropFlag(CSmPlayer Player)
+{
+	declare Clan = Player.CurrentClan;
+	declare FlagDropTime for Player = 0;
+	
+	if(Clan <= 0) return;
+	
+	if (Player.Id != FlagCarrier[Clan])
+	{
+		return;
+	}
+	
+	DropFlag(Player, Clan, Player.Position + <0., 1., 0.>);
+}
+
+Void UpdateBot(CSmPlayer Player)
+{
+	if (Player.SpawnStatus != CSmPlayer::ESpawnStatus::Spawned) return;
+	declare Vec3 Target;
+	declare TargetMode = 0;
+	declare Integer IgnorePickups for Player = 0;
+	declare Integer StuckTill for Player = 0;
+	
+	if (FlagCarrier[Player.CurrentClan] == NullId)
+	{
+		TargetMode = 1;
+		Target = FlagObjects[3 - Player.CurrentClan].Position;
+	}
+	else if (FlagCarrier[Player.CurrentClan] != NullId && FlagCarrier[Player.CurrentClan] == Player.Id)
+	{
+		Target = Poles[Player.CurrentClan].Position;
+		if (!Poles[Player.CurrentClan].Captured)
+		{
+			TargetMode = 1;
+		}
+	}
+	else if (!Poles[Player.CurrentClan].Captured)
+	{
+		if (FlagCarrier[3 - Player.CurrentClan] != NullId)
+		{
+			Target = AllPlayers[FlagCarrier[3 - Player.CurrentClan]].Position;
+			TargetMode = 1;
+		}
+		else
+		{
+			Target = FlagObjects[Player.CurrentClan].Position;
+		}
+	}
+	else
+	{
+		TargetMode = 1;
+		Target = Player.Position;
+	}
+	
+	foreach (_Player in AllPlayers)
+	{
+		if (Player != _Player
+				&& Player.SpawnStatus == CSmPlayer::ESpawnStatus::Spawned
+				&& Player.CurrentClan != _Player.CurrentClan
+				&& MathLib::Abs(Player.Position.Y - _Player.Position.Y) < 5.
+				&& MathLib::Distance(Player.Position, _Player.Position) <= Min(Player.Driver.AggroRadius, MathLib::Distance(Player.Position, Target)))
+		{
+			TargetMode = 1;
+			Target = Player.Position;
+			if (Player.Driver.Target == Null || _Player.CurrentClan > 0 && _Player.Id == FlagCarrier[_Player.CurrentClan])
+			{
+				Player.Driver.ForcedTarget = _Player;
+			}
+		}
+	}
+	
+	if (Player.Driver.ForcedTarget != Null && (Player.Driver.ForcedTarget.SpawnStatus != CSmPlayer::ESpawnStatus::Spawned || MathLib::Distance(Player.Driver.ForcedTarget.Position, Player.Position) > Player.Driver.AggroRadius * 2))
+	{
+		Player.Driver.ForcedTarget = Null;
+	}
+	
+	if (Player.Driver.IsStuck)
+	{
+		IgnorePickups = Now + 10000;
+		if (StuckTill == 0)
+		{
+			StuckTill = Now;
+		}
+		else if (Now - StuckTill > BotStuckKillTime)
+		{
+			DropFlag(Player);
+			Player.Armor = 0;
+		}
+	}
+	else
+	{
+		StuckTill = 0;
+	}
+	
+	if (IgnorePickups < Now)
+	{
+		foreach(Item in Objects)
+		{
+			if (Item.Status != CSmObject::EStatus::InWorld || MathLib::Abs(Item.Position.Y - Player.Position.Y) > 10.) continue;
+			declare PickupType for Item = -1;
+			declare Dist = MathLib::Distance(Item.Position, Player.Position);
+			if (PickupType > 0
+				&& Dist < Player.Driver.AggroRadius
+				&& Pickup::CanPickupItem(Player, Item))
+			{
+				if (MathLib::Distance(Item.Position, Player.Position) < 1.5)
+				{
+					declare tmp = Pickup::HandlePickup(Item, Player);
+				}
+				else
+				{
+					Player.Driver.ForcedTarget = Null;
+					Target = Item.Position;
+					TargetMode = 2;
+					break;
+				}
+			}
+			else if (Dist < Player.Driver.AggroRadius * 2)
+			{
+				for (Clan, 1, 2)
+				{
+					if (Item == FlagObjects[Clan]
+						&& FlagDropTimes[Clan] > 0)
+					{
+						Target = Item.Position;
+						TargetMode = 2;
+						break;
+					}
+				}
+			}
+		}
+	}
+	
+	//Weapon Selection
+	if (Player.Driver.Target != Null && Player.Driver.Target != Null && WeaponMode >= 6 && !NeedFallback)
+	{
+		declare Boolean HasWeaponRocket for Player;
+		declare Boolean HasWeaponLaser for Player;
+		declare Boolean HasWeaponNucleus for Player;
+		declare Boolean HasWeaponArrow for Player;
+		
+		declare Dist = MathLib::Distance(Player.Position, Player
+				.Driver
+				.Target
+				.Position);
+		if (Dist < 5. && HasWeaponNucleus && Pickup::GetAmmo(Player, 3) != 0)
+		{
+			Pickup::SwitchWeapon(Player, CSmModeEvent::EActionSlots::Activable3);
+		}
+		else if (Dist < 10. && HasWeaponRocket && Pickup::GetAmmo(Player, 1) != 0)
+		{
+			Pickup::SwitchWeapon(Player, CSmModeEvent::EActionSlots::Activable1);
+		}
+		else if (Dist < 15. && HasWeaponLaser && Pickup::GetAmmo(Player, 2) != 0)
+		{
+			Pickup::SwitchWeapon(Player, CSmModeEvent::EActionSlots::Activable2);
+		}
+		else if (HasWeaponArrow && Pickup::GetAmmo(Player, 4) != 0)
+		{
+			Pickup::SwitchWeapon(Player, CSmModeEvent::EActionSlots::Activable4);
+		}
+	}
+	
+	if (TargetMode == 0)
+	{
+		Player.Driver.Behaviour = CSmPlayerDriver::ESmDriverBehaviour::Saunter;
+		Player.Driver.Saunter_AnchorPoint = Target;
+		Player.Driver.Saunter_Radius = 0.5;
+	}
+	else if (TargetMode == 1)
+	{
+		Player.Driver.Behaviour = CSmPlayerDriver::ESmDriverBehaviour::Saunter;
+		Player.Driver.Saunter_AnchorPoint = Target;
+		Player.Driver.Saunter_Radius = 3.;
+	}
+	else if (TargetMode == 2)
+	{
+		Player.Driver.Behaviour = CSmPlayerDriver::ESmDriverBehaviour::Scripted;
+		if (MathLib::Distance(Player.Position, Target) > 1.)
+		{
+			ScriptedBot_MoveAndAim(Player, Target);
+		}
+		else
+		{
+			ScriptedBot_Move(Player, Target);
+		}
+	}
+}
+
+Void UpdateBots()
+{
+	UpdateBotCount();
+	foreach (Player in BotPlayers)
+	{
+		UpdateBot(Player);
+	}
+}
+
+
+Text GetMLVersion()
+{
+	declare ML = """<label id="VersionNum" posn="160 -90" valign="bottom" halign="right" scale="0.5" scriptevents="1">V. {{{VersionNum}}}</label>
+	<frame posn="0 70" z-index="150" halign="center" valign="top" id="versionwin">
+		<quad style="Bgs1" halign="center" valign="top" substyle="BgTitle3" posn="0 10" z-index="1" sizen="60 10" />
+		<quad style="Bgs1" substyle="BgCard" halign="center" valign="top" posn="0 12" z-index="-1" sizen="68 38" />
+		<quad id="CloseButton" scriptevents="1" style="Icons64x64_1" substyle="Close" halign="center" valign="bottom" posn="0 -26" sizen="8 8" />
+		<label halign="center" valign="top" posn="0 7">Capture the Flag</label>
+		<label halign="left" valign="top" posn="-30 -2" textsize="1.5" textcolor="000">- Version: {{{VersionNum}}}
+- Author: mewin ($h[mewinsml]$f00M$d20e$b40w$960i$780à¸—$000ã‚·$h$z)
+- Date: {{{Version}}}
+- Download/Support: $hmewinsml$h
+- Info: $hmewinsml$h</label>
+	</frame>
+	<script><!--
+		main()
+		{
+			declare ShowMore = False;
+			declare VersionWin <=> (Page.GetFirstChild("versionwin") as CMlFrame);
+			declare VersionLabel <=> (Page.GetFirstChild("VersionNum") as CMlLabel);
+			declare OutOfDate = False;
+			
+			VersionWin.Hide();""";
+			
+			if (UpdateChannel != "none")
+			{
+				declare Host = "mewin.bplaced.net";
+				if (Debug)
+				{
+					Host = "127.0.0.1";
+				}
+				ML ^= """
+				declare Request = Http.CreateGet("http://{{{Host}}}/mania/ctf_version.php?channel={{{UpdateChannel}}}");
+				
+				while (!Request.IsCompleted)
+				{
+					yield;
+				}
+				
+				if (Request.StatusCode == 200 && Request.Result != "{{{VersionNum}}}")
+				{
+					OutOfDate = True;
+				}
+				""";
+			}
+			
+			ML ^= """while(True)
+			{
+				yield;
+				
+				if (OutOfDate)
+				{
+					if (Now % 30000 > 25000)
+					{
+						VersionLabel.SetText("V. {{{VersionNum}}}");
+					}
+					else
+					{
+						VersionLabel.SetText("$f00Out of date!");
+					}
+				}
+				
+				foreach(Event in PendingEvents)
+				{
+					if (Event.Type == CMlEvent::Type::MouseClick)
+					{
+						if (Event.ControlId == "VersionNum" || Event.ControlId == "CloseButton")
+						{
+							ShowMore = !ShowMore;
+							if (ShowMore)
+							{
+								VersionWin.Show();
+							}
+							else
+							{
+								VersionWin.Hide();
+							}
+						}
+					}
+				}
+			}
+		}
+	--></script>
+	""";
+	
+	return ML;
+}
+
+Text GetMLRoundInfo()
+{
+	declare ClanHPos = [1 => -20, 2 => 20];
+	declare ClanAligns = [1 => "right", 2 => "left"];
+	declare ML = "";
+	
+	for(Clan, 1, 2)
+	{
+		/*if(Poles[Clan].Gauge.Value >= 100 || (FlagCarrier[3 - Clan] == NullId && (Now / 2000) % 2 == 0))
+		{
+			ML ^= """<quad posn="{{{ClanHPos[Clan]}}} 70" sizen="15 15" image="{{{C_FlagImage}}}" halign="center" modulatecolor="0f0" colorize="{{{TextLib::ColorToText(Teams[Clan - 1].ColorPrimary)}}}" valign="center" />""";
+		}
+		else if((Now / 1000) % 2 == 0)
+		{
+			ML ^= """<quad posn="{{{ClanHPos[Clan]}}} 70" sizen="15 15" image="{{{C_FlagImage}}}" halign="center" modulatecolor="0f0" colorize="{{{TextLib::ColorToText(Teams[Clan - 1].ColorPrimary)}}}" valign="center" />""";
+		}
+		else
+		{
+			ML ^= """<quad posn="{{{ClanHPos[Clan]}}} 70" sizen="15 15" image="{{{C_FlagImage}}}" halign="center" modulatecolor="0f0" colorize="000" valign="center" />""";
+		}*/
+		
+		if (Poles[Clan].Gauge.Value >= 100)
+		{
+			ML ^= """<quad posn="{{{ClanHPos[Clan]}}} 70" sizen="15 15" image="{{{C_FlagImage}}}" halign="center" modulatecolor="0f0" colorize="{{{TextLib::ColorToText(Teams[Clan - 1].ColorPrimary)}}}" valign="center" />""";
+		}
+		else if (FlagCarrier[3 - Clan] == NullId)
+		{
+			ML ^= """<quad posn="{{{ClanHPos[Clan]}}} 70" sizen="15 15" image="{{{C_FlagDroppedImage}}}" halign="center" modulatecolor="0f0" colorize="{{{TextLib::ColorToText(Teams[Clan - 1].ColorPrimary)}}}" valign="center" />""";
+		}
+		else
+		{
+			ML ^= """<quad posn="{{{ClanHPos[Clan]}}} 70" sizen="15 15" image="{{{C_FlagCarriedImage}}}" halign="center" modulatecolor="0f0" colorize="{{{TextLib::ColorToText(Teams[Clan - 1].ColorPrimary)}}}" valign="center" />""";
+		}
+		
+		if (FlagCarrier[3 - Clan] != NullId && AllPlayers.existskey(FlagCarrier[3 - Clan]))
+		{
+			ML ^= """<label posn="{{{ClanHPos[Clan] / 2 }}} 60" halign="{{{ClanAligns[Clan]}}}" valign="center">{{{TextLib::MLEncode(PlayerName(AllPlayers[FlagCarrier[3 - Clan]]))}}}</label>""";
+		}
+		
+		if (FlagDropTimes[Clan] > 0)
+		{
+			ML ^= """<label posn="{{{ClanHPos[Clan]}}} 60" halign="center" valign="center" style="TextRaceChrono" scale="0.7">{{{(FlagDropTimes[Clan] + FlagResetTime - Now) / 1000}}}</label>""";
+		}
+	}
+	
+	return ML;
+}
+
+Text GetMLEvents(CUser User)
+{
+	declare ML = """<script><!--
+				#Include "TextLib" as TL
+				main()
+				{
+					declare Integer[Text] KeyCodes; //persis
+					declare Text[Text] KeyNames; //persis
+					declare netwrite DropFlag for UI = False;
+					declare netread HasFlag for UI = False;
+					declare LabelDrop <=> (Page.GetFirstChild("LabelDrop") as CMlLabel);
+					
+					if (!KeyCodes.existskey("DropFlag"))
+					{
+						KeyCodes["DropFlag"] = 39;
+						KeyNames["DropFlag"] = "F2";
+					}
+					
+					while(True)
+					{
+						yield ;
+						
+						if (LabelDrop.Visible)
+						{
+							LabelDrop.Value = TL::Compose("{{{Lang::GetUserTranslation("hint.drop", User)}}}", KeyNames["DropFlag"]);
+						}
+						
+						if(!HasFlag)
+						{
+							DropFlag = False;
+							LabelDrop.Hide();
+						}
+						else
+						{
+							LabelDrop.Show();
+						}
+						
+						foreach(Event in PendingEvents)
+						{
+							if (Event.Type == CMlEvent::Type::KeyPress && Event.KeyCode == KeyCodes["DropFlag"])
+							{
+								DropFlag = True;
+							}
+						}
+					}
+				}
+				--></script>
+				<label posn="0 -40" halign="center" id="LabelDrop" style="TextInfoSmall">{{{TextLib::Compose(Lang::GetUserTranslation("hint.drop", User), "F3")}}}</label>""";
+				
+	return ML;
+}
+
+Text WeaponModeString()
+{
+	declare WM = WeaponMode;
+	if (NeedFallback)
+	{
+		WM = FallbackWeaponMode;
+	}
+	switch(WM)
+	{
+		case 0:
+			return "normal";
+		case 1:
+			return "rocket only";
+		case 2:
+			return "laser only";
+		case 3:
+			return "arrow only";
+		case 4:
+			return "nucleus only";
+		case 5:
+			return "random";
+		case 6:
+			return "map/pickups";
+		case 7:
+			return "all";
+	}
+	
+	return "unknown";
+}
+
+Text OvertimeModeString()
+{
+	switch(OvertimeMode)
+	{
+		case 0:
+			return "win on advantege";
+		case 1:
+			return "win on capture";
+		case 2: 
+			return "no overtime (draw)";
+	}
+	return "unknown";
+}
+
+Text TeamDamageString()
+{
+	switch (TeamDamage)
+	{
+		case 0:
+			return "no";
+		case 1:
+			return "yes";
+		case 2:
+			return "reflected";
+	}
+	
+	return "unknown";
+}
+
+Text ScoreLimitText()
+{
+	if (ScoreLimit > 0)
+	{
+		return TextLib::ToText(ScoreLimit);
+	}
+	
+	return "none";
+}
+
+Text TimeLimitText()
+{
+	if (TimeLimit > -1)
+	{
+		return TextLib::TimeToText(TimeLimit);
+	}
+	
+	return "none";
+}
+
+Void UpdateSettingsLayer()
+{
+	declare Layer = UIManager.UILayers[SettingsLayerId];
+	declare Text ML;
+	ML = """
+		<frame id="MainFrame" posn="0 0" z-index="100">
+			<quad posn="0 104" z-index="39" sizen="260 200" halign="center" image="file://Media/Manialinks/Shootmania/Common/topsBg.dds" />
+			<frame posn="-110 10" z-index="2">
+				<label posn="0 25" z-index="2" halign="left" style="TextTitle1" text="Limits" />
+				<label posn="0 15" z-index="2" style="TextCardSmallScores2" halign="left" text="Scorelimit: {{{ ScoreLimitText() }}}" />
+				<label posn="0 10" z-index="2" style="TextCardSmallScores2" halign="left" text="Timelimit: {{{ TimeLimitText() }}}" />
+				<label posn="0 5" z-index="2" style="TextCardSmallScores2" halign="left" text="Rounds to Win: {{{ WinLimit }}}" />
+			</frame>
+			<frame posn="-40 10 2">
+				<label posn="0 25" z-index="2" halign="left" style="TextTitle1" text="Scores" />
+				<label posn="0 15" z-index="2" style="TextCardSmallScores2" halign="left" text="Taking Flag: {{{ TakeScore }}}" />
+				<label posn="0 10" z-index="2" style="TextCardSmallScores2" halign="left" text="Capturing Flag: {{{ CaptureScore }}}" />
+				<label posn="0 5" z-index="2" style="TextCardSmallScores2" halign="left" text="Returning Flag: {{{ ReturnScore }}}" />
+				<label posn="0 0" z-index="2" style="TextCardSmallScores2" halign="left" text="Hitting Player: {{{ KillScore }}}" />
+			</frame>
+			<frame posn="30 10 2">
+				<label posn="0 25" z-index="2" halign="left" style="TextTitle1" text="Times" />
+				<label posn="0 15" z-index="2" style="TextCardSmallScores2" halign="left" text="Flag Reset: {{{ TextLib::TimeToText(FlagResetTime) }}}" />
+				<label posn="0 10" z-index="2" style="TextCardSmallScores2" halign="left" text="Warmup Duration: {{{TextLib::TimeToText(WarmUpDuration) }}}" />
+				<label posn="0 5" z-index="2" style="TextCardSmallScores2" halign="left" text="Item Respawn: {{{TextLib::TimeToText(ItemRespawnTime) }}}" />
+			</frame>
+			<frame posn="-110 -40" z-index="2">
+				<label posn="0 25" z-index="2" halign="left" style="TextTitle1" text="Weapons" />
+				<label posn="0 15" z-index="2" style="TextCardSmallScores2" halign="left" text="Weapon Mode: {{{ WeaponModeString() }}}" />
+				<label posn="0 10" z-index="2" style="TextCardSmallScores2" halign="left" text="Default Ammo Gain: {{{ AmmoGain }}}" />
+				<label posn="0 5" z-index="2" style="TextCardSmallScores2" halign="left" text="Default Maximum Ammo: {{{ AmmoMax }}}" />
+				<label posn="0 0" z-index="2" style="TextCardSmallScores2" halign="left" text="Reload Inactive Weapons:" /><quad posn="39 0.5 2" sizen="4 4" style="Icons64x64_1" """;
+				if (InactiveWeaponReload)
+				{
+					ML ^= """ substyle="LvlGreen" """;
+				}
+				else
+				{
+					ML ^= """ substyle="LvlRed" """;
+				}
+				ML ^= """/>
+			</frame>
+			<frame posn="-40 -40" z-index="2">
+				<label posn="0 25" z-index="2" halign="left" style="TextTitle1" text="Settings" />
+				<label posn="0 15" z-index="2" style="TextCardSmallScores2" halign="left" text="Default Armor: {{{ ArmorMax }}}" />
+				<label posn="0 10" z-index="2" style="TextCardSmallScores2" halign="left" text="Maximum Armor: {{{ ArmorGainMax }}}" />
+				<label posn="0 5" z-index="2" style="TextCardSmallScores2" halign="left" text="Fill-Up Bot Count: {{{ BotsFill }}}" />
+				<label posn="0 0" z-index="2" style="TextCardSmallScores2" halign="left" text="Bot Skill: {{{ BotSkill }}}" />
+			</frame>
+			<frame posn="30 -40" z-index="2">
+				<label posn="0 15" z-index="2" style="TextCardSmallScores2" halign="left" text="Overtime Mode: {{{ OvertimeModeString() }}}" />
+				<label posn="0 10" z-index="2" style="TextCardSmallScores2" halign="left" text="Team Damage: {{{ TeamDamageString() }}}" />
+				<label posn="0 5" z-index="2" style="TextCardSmallScores2" halign="left" text="Kill Map Leavers:" /><quad posn="25 5.5 2" sizen="4 4" style="Icons64x64_1" """;
+				if (KillLeavers)
+				{
+					ML ^= """ substyle="LvlGreen" """;
+				}
+				else
+				{
+					ML ^= """ substyle="LvlRed" """;
+				}
+				ML ^= """/>
+			</frame>
+		</frame>
+		<script><!--
+			main()
+			{
+				declare Boolean _TabsLib_AltLayerIsVisible 		for UI;
+				declare Text 	_TabsLib_CurrentTab 			for UI;
+				declare MainFrame = Page.GetFirstChild("MainFrame");
+				
+				while (True)
+				{
+					yield;
+					if (_TabsLib_AltLayerIsVisible && _TabsLib_CurrentTab == "SettingsTab")
+					{
+						MainFrame.Show();
+					}
+					else
+					{
+						MainFrame.Hide();
+					}
+				}
+			}
+		--></script>
+	""";
+	
+	Layer.ManialinkPage = ML;
+}
+
+CUILayer CreateSettingsLayer()
+{
+	declare CUILayer Layer <=> UIManager.UILayerCreate();
+	SettingsLayerId = Layer.Id;
+	UpdateSettingsLayer();
+	return Layer;
+}
+
+Text CreateMarkerLayer()
+{
+	declare ClanColors = [ 1 => "Medium", 2 => "Hard"];
+	declare Text ML;
+	
+	ML = """<script><!--
+		main()
+		{
+			declare Integer[Text] KeyCodes; //persis
+			declare Text[Text] KeyNames; //persis
+			
+			if (!KeyCodes.existskey("CtfMarker"))
+			{
+				KeyCodes["CtfMarker"] = 40;
+				KeyNames["CtfMarker"] = "F4";
+			}
+			
+			declare ShowPoleMarkers = False;
+			declare Quads = [1=>Page.GetFirstChild("Quad_Base_1"), 2=>Page.GetFirstChild("Quad_Base_2")];
+			
+			for (Clan, 1, 2)
+			{
+				Quads[Clan].Hide();
+			}
+			
+			while(True)
+			{
+				foreach(Event in PendingEvents)
+				{
+					switch(Event.Type)
+					{
+						case CMlEvent::Type::KeyPress:
+							if (Event.KeyCode == KeyCodes["CtfMarker"])
+							{
+								ShowPoleMarkers = !ShowPoleMarkers;
+								if (ShowPoleMarkers)
+								{
+									for (Clan, 1, 2)
+									{
+										Quads[Clan].Show();
+									}
+								}
+								else
+								{
+									for (Clan, 1, 2)
+									{
+										Quads[Clan].Hide();
+									}
+								}
+							}
+					}
+				}
+				yield;
+			}
+		}
+	--></script>""";
+	
+	for (Clan, 1, 2)
+	{
+		ML ^= """<frame id="Marker_Base_{{{Clan}}}" hidden="1"><quad posn="0 0" sizen="10 10" style="Icons128x128_1" substyle="{{{ClanColors[Clan]}}}" halign="center" valign="center" autoscale="False" id="Quad_Base_{{{Clan}}}" visible="false" /></frame>""";
+	}
+	
+	return ML;
+}
+
+Void Update3dMarkers()
+{
+	declare Text MarkerText;
+	for (Clan, 1, 2)
+	{
+		declare Pole = Poles[Clan];
+		MarkerText ^= """<marker pos="{{{Pole.Position.X}}} {{{Pole.Position.Y + 25}}}" z-index="{{{Pole.Position.Z}}}" manialinkframeid="Marker_Base_{{{Clan}}}" visibility="WhenInFrustum" />""";
+	}
+	UIManager.UIAll.Hud3dMarkers = MarkerText;
+}
+
+Void DoWarmUp(CSmBlockSpawn[] spawns1, CSmBlockSpawn[] spawns2)
+{	
+	WarmUp::Initialize(WarmUpDuration, spawns1, spawns2);
+	WarmUp::SetMinimumPlayersNumber(1);
+	if (WarmUpDuration > 1)
+	{
+		WarmUp::SetForceWarmUpDuration(True);
+	}
+	WarmUp::Start();
+}
+
+Void _SpawnPlayer(CSmPlayer Player, Integer time)
+{
+	if(!Player.IsFakePlayer)
+	{
+		declare netwrite HasFlag for Player = False;
+	
+		HasFlag = False;
+	}
+					
+	declare Weapon = CSmMode::EWeapon::Rocket;
+	declare AllowSwitch = False;
+	if (G_BlockSpawnQueue[MapSidesIndices[Player.RequestedClan]].count < 1)
+		UpdateBlockSpawnQueue(MapSidesIndices[Player.RequestedClan]);
+	declare SpawnId = G_BlockSpawnQueue[MapSidesIndices[Player.RequestedClan]][MathLib::Rand(0, G_BlockSpawnQueue[MapSidesIndices[Player.RequestedClan]].count - 1)];
+	declare Tmp = G_BlockSpawnQueue[MapSidesIndices[Player.RequestedClan]].remove(SpawnId);
+	
+	declare WM = WeaponMode;
+	if (NeedFallback)
+	{
+		WM = FallbackWeaponMode;
+	}
+	switch(WM)
+	{
+		case 1:
+			Weapon = CSmMode::EWeapon::Rocket;
+		case 2:
+			Weapon = CSmMode::EWeapon::Laser;
+		case 3:
+			Weapon = CSmMode::EWeapon::Arrow;
+		case 4:
+			Weapon = CSmMode::EWeapon::Nucleus;
+		case 5:
+			Weapon = RandomWeapon(31); //any weapon
+		case 6:
+			Weapon = RandomWeapon(BlockSpawns[SpawnId].Order);
+		default:
+			AllowSwitch = True;
+	}
+	
+	declare MaxAmmo = AmmoMax;
+	declare Gain = AmmoGain;
+	
+	if (!ForceAmmo)
+	{
+		declare Factor = 1.0;
+		switch(Weapon)
+		{
+			case CSmMode::EWeapon::Rocket:
+				Factor = RocketFactor;
+			case CSmMode::EWeapon::Laser:
+				Factor = LaserFactor;
+			case CSmMode::EWeapon::Nucleus:
+				Factor = NucleusFactor;
+			case CSmMode::EWeapon::Arrow:
+				Factor = ArrowFactor;
+		}
+		MaxAmmo = MathLib::NearestInteger(MaxAmmo * Factor);
+		if (MaxAmmo < 1)
+		{
+			MaxAmmo = 1;
+		}
+	}
+	
+	switch(Weapon)
+	{
+		case CSmMode::EWeapon::Rocket:
+			Gain *= RocketGainFactor;
+		case CSmMode::EWeapon::Laser:
+			Gain *= LaserGainFactor;
+		case CSmMode::EWeapon::Nucleus:
+			Gain *= NucleusGainFactor;
+		case CSmMode::EWeapon::Arrow:
+			Gain *= ArrowGainFactor;
+	}
+	
+	Pickup::OnPlayerSpawn(Player, Weapon, MaxAmmo, ArmorMax, Gain, AllowSwitch);
+	SM::SpawnPlayer(Player, Player.RequestedClan, BlockSpawns[SpawnId], Now);
+	
+	Slider::ShowSlider(Player, 0);
+	Slider::HideSlider(Player, 5000);
+}
+
+Void TakeFlag(CSmPlayer Player, Boolean GetScore)
+{
+	declare Clan = 3 - Player.CurrentClan;
+	declare LockedTill for FlagObjects[Clan] = 0;
+	if (LockedTill > Now) return;
+	if (Player.Id == FlagCarrier[Clan])
+	{
+		return;
+	}
+	FlagCarrier[3 - Clan] = Player.Id;
+	FlagDropTimes[Clan] = 0;
+	if (GetScore)
+	{
+		declare AtkScore for Player = 0;
+		
+		Score::AddPoints(Player, TakeScore);
+		AtkScore += TakeScore;
+		ScoresTable::SetCustom2(Player, TextLib::ToText(AtkScore));
+		if (!Player.IsBot)
+		{
+			Top::SetRecord(Player, "Atk", TextLib::ToText(AtkScore), -AtkScore);
+		}
+	}
+	
+	Lang::SendBigMessage("flag.take", 2000, PriorityTake, PlayerName(Player), Teams[Clan - 1].ColorizedName);
+	if (!Player.IsBot)
+	{
+		declare netwrite HasFlag for UIManager.GetUI(Player) = False;
+		HasFlag = True;
+	}
+	
+	//Sound::PlaySoundAll("Flag.Take." ^ Player.CurrentClan);
+	Sound::PlaySoundClan("Flag.Take.Enemy", 3 - Clan);
+	Sound::PlaySoundClan("Flag.Take.Ally", Clan);
+	FlagObjects[Clan].SetPlayer(Player);
+	
+	if (Player.IsBot)
+	{
+		Player.Driver.AggroRadius /= 2;
+	}
+}
+
+Void UpdateFlagPositions()
+{
+	for (Clan, 1, 2)
+	{
+		if (FlagCarrier[Clan] != NullId)
+		{
+			if (!AllPlayers.existskey(FlagCarrier[Clan]))
+			{
+				//reset flag
+			}
+			else if (AllPlayers[FlagCarrier[Clan]].RequestsSpectate)
+			{
+				DropFlag(AllPlayers[FlagCarrier[Clan]], Clan, AllPlayers[FlagCarrier[Clan]].Position + <0., 1., 0.>);
+			}
+			else
+			{
+				declare Player = AllPlayers[FlagCarrier[Clan]];
+				//UpdatePlayerVelocity(AllPlayers[FlagCarrier[Clan]]);
+				//declare Velocity for AllPlayers[FlagCarrier[Clan]] = <0., 0., 0.>;
+				FlagObjects[3 - Clan].SetPositionAndVel(Player.Position + <Player.AimDirection.X * -0.3, 0.5, Player.AimDirection.Z * -0.3>, Player.AimDirection * -1);
+				//FlagObjects[3 - Clan].SetPlayer(AllPlayers[FlagCarrier[Clan]]);
+			}
+		}
+	}
+}
+
+Void KillLeavers()
+{
+	foreach (Player in AllPlayers)
+	{
+		if (Player.SpawnStatus != CSmPlayer::ESpawnStatus::Spawned) continue;
+		declare LeftSince for Player = 0;
+		
+		if (Player.Position.X < -8
+			|| Player.Position.Z < -8
+			|| Player.Position.X / 8 > Map.Size.X + 1
+			|| Player.Position.Z / 8 > Map.Size.Z + 1)
+		{
+			if (LeftSince == 0)
+			{
+				LeftSince = Now;
+			}
+			else if (Now - LeftSince > 10000)
+			{
+				DropFlag(Player);
+				Player.Armor = 0;
+				if (!Player.IsBot)
+				{
+					UIManager.GetUI(Player).BigMessage = "";
+				}
+			}
+			else if (!Player.IsBot)
+			{
+				UIManager.GetUI(Player).BigMessage = TextLib::Compose(Lang::GetUserTranslation("game.leaveWarning", Player.User), TextLib::ToText(10 - MathLib::FloorInteger((Now - LeftSince) / 1000.)));
+			}
+		}
+		else
+		{
+			if (!Player.IsBot)
+			{
+				UIManager.GetUI(Player).BigMessage = "";
+			}
+			LeftSince = 0;
+		}
+	}
+}
+
+main()
+{
+	declare MatchNumber = 0;
+	log("""Capture the Flag V. {{{VersionNum}}} initializing...""");
+	+++InitServer+++
+	DbgEnableNavMesh = True;
+	UseClans = True;
+	
+	declare LayerRoundInfo <=> UIManager.UILayerCreate();
+	declare LayerVersion <=> UIManager.UILayerCreate();
+	declare LayerMarkers <=> UIManager.UILayerCreate();
+	declare LayerSettings <=> UIManager.UILayerCreate();
+	
+	LayerVersion.ManialinkPage = GetMLVersion();
+	LayerMarkers.ManialinkPage = CreateMarkerLayer();
+	LayerMarkers.Type = CUILayer::EUILayerType::Markers;
+	
+	UIManager.UIAll.UILayers.add(LayerVersion);
+	UIManager.UIAll.UILayers.add(LayerMarkers);
+	UIManager.UIAll.UILayers.add(LayerSettings);
+	
+	Lang::Init();
+	Lang::LoadLanguage("Translations/CTF/en.xml");
+	
+	//Init Pickups
+	Pickup::SetItemRespawnTime(ItemRespawnTime);
+	Pickup::SetArmorGainMax(ArmorGainMax);
+	Pickup::SetArmorMax(ArmorMax);
+	Pickup::SetDoubleDamageTime(DoubleDamageTime);
+	if (WeaponMode == 7)
+	{
+		Pickup::SetAllWeapons(True);
+	}
+	
+	for (PickupType, 1, 6)
+	{
+		Pickup::SetRespawnModifier(PickupType, RespawnModifier[PickupType]);
+	}
+	
+	if (EnableMultiLang)
+	{
+		//German
+		Lang::LoadLanguage("Translations/CTF/de.xml");
+		
+		//French
+		Lang::LoadLanguage("Translations/CTF/fr.xml");
+		
+	}
+	Multikill::Init(EnableMultiLang);
+		
+	//Load flag models
+	ItemList_Begin();
+	FlagModels = [1 => ItemList_Add(BlueFlagPath), 2 => ItemList_Add(RedFlagPath)];
+	Pickup::LoadModels();
+	ItemList_End();
+	
+	UIManager.UIAll.AltMenuNoCustomScores = True;
+	UIManager.UIAll.AltMenuNoDefaultScores = True;
+	
+	while( !ServerShutdownRequested )
+	{
+		
+		declare LastBotUpdate = 0;
+		XmlRpc::LoadingMap(NextMapIndex);
+		LoadMap();
+		XmlRpc::BeginMap(NextMapIndex,True);
+		+++MatchBegin+++
+	
+		Top::Load();
+		Top::SetTopWidth(65.);
+		declare Real TopXPosition	= -70.;
+		declare Real TopYPosition	= 39.;
+		declare Real TopXOffset 	= 70.;
+		declare Real TopYOffset 	= -50.;
+		declare Integer NbPlayersPerTop = 7;
+		declare Text TopBGImg = "file://Media/Manialinks/Shootmania/Common/topsBg.dds";
+		Top::Create("Hit", _("Top Hit"), NbPlayersPerTop, <TopXPosition, TopYPosition>);
+		TopXPosition += TopXOffset;
+		Top::Create("Atk", _("Top Attack"), NbPlayersPerTop, <TopXPosition, TopYPosition>);
+		TopXPosition += TopXOffset;
+		Top::Create("Def", _("Top Defense"), NbPlayersPerTop, <TopXPosition, TopYPosition>);
+		TopXPosition -= TopXOffset * 2;
+		TopYPosition += TopYOffset;
+		Top::Create("HeadShot", "Top Headshots", NbPlayersPerTop, <TopXPosition, TopYPosition>);
+		TopXPosition += TopXOffset;
+		Top::Create("Spree", "Top Spree", NbPlayersPerTop, <TopXPosition, TopYPosition>);
+		TopXPosition += TopXOffset;
+		Top::Create("Multi", "Top Multikill", NbPlayersPerTop, <TopXPosition, TopYPosition>);
+		Top::SetCommonBackgroundImage(TopBGImg,  <0., 104.>, <260., 200.>);
+		Top::SetLayerType(CUILayer::EUILayerType::AltMenu);
+		//Init Tabs
+		Tabs::Load();
+		declare TabsLayer <=> Tabs::CreateTabPaneLayer(
+		[ 
+			"TopTab"	=> "Buddies",
+			"ScoresTab" => "Rankings",
+			"SettingsTab" => "Advanced"
+			
+		], 5, -5, False);
+		
+		TabsLayer.Type = CUILayer::EUILayerType::AltMenu;
+		UIManager.UIAll.UILayers.add(TabsLayer);
+		declare SettingsLayer <=> CreateSettingsLayer();
+		SettingsLayer.Type = CUILayer::EUILayerType::AltMenu;
+		UIManager.UIAll.UILayers.add(SettingsLayer);	
+				
+		ScoresTable::StartMatch();
+		
+		//Init UI
+		log("""Initializing {{{ScoresTable::GetScriptName()}}} V.{{{ScoresTable::GetScriptVersion()}}}""");
+		declare Text Clan1Color 	= Teams[0].ColorPrimary.X^" "^Teams[0].ColorPrimary.Y^" "^Teams[0].ColorPrimary.Z;
+		declare Text Clan2Color 	= Teams[1].ColorPrimary.X^" "^Teams[1].ColorPrimary.Y^" "^Teams[1].ColorPrimary.Z;
+		ScoresTable::Load();
+		ScoresTable::SetTableWidth(236.);
+		ScoresTable::SetDisplayTeamScore(True);
+		ScoresTable::SetColumnWidth("Custom1", 5.);
+		ScoresTable::SetColumnName("Custom1", "Hits");
+		ScoresTable::SetDefaultCustom1("0");
+		ScoresTable::SetColumnWidth("Custom2", 5.);
+		ScoresTable::SetColumnName("Custom2", "Atk");
+		ScoresTable::SetDefaultCustom2("0");
+		ScoresTable::SetColumnWidth("Custom3", 5.);
+		ScoresTable::SetColumnName("Custom3", "Def");
+		ScoresTable::SetDefaultCustom3("0");
+		ScoresTable::SetTableBackgroundLeftRightImage("file://Media/Manialinks/ShootMania/Common/scoresBg.dds", 
+		"file://Media/Manialinks/ShootMania/Common/scoresBg_left.dds", 
+		"file://Media/Manialinks/ShootMania/Common/scoresBg_right.dds", Clan1Color, Clan2Color, 98, 57, 52, <0., 62.>, <260., 200.>);
+		ScoresTable::Build();
+		ScoresTable::GetLayerScoresTable().Type = CUILayer::EUILayerType::Normal;
+		
+		Top::ResetAll();
+		
+		//Init SpawnScreen
+		---Rules---
+		//Init SpawnScreen
+		SpawnScreen::SetModeName("Capture The Flag");
+		SpawnScreen::AddSubsection("Rules", ModeRules, 0.);
+		SpawnScreen::CreatePrettyRules("Capture The Flag");
+		SpawnScreen::CreateMapInfo();
+		
+		Score::MatchBegin(False);	
+		Airshot::MatchBegin();
+		Victory::MatchBegin();
+		if(AutoBalance) AutoTeamBalance();
+		Ladder_OpenMatch_All();
+		
+		declare Round = 0;
+		
+		foreach (Player in Players)
+		{
+			declare CUILayer LayerEvents for Player;
+			declare CUILayer LayerWeapon for Player;
+			declare AtkScore for Player = 0;
+			declare DefScore for Player = 0;
+			declare HitScore for Player = 0;
+			
+			AtkScore = 0;
+			DefScore = 0;
+			HitScore = 0;
+			
+			LayerWeapon <=> Null;
+			LayerEvents <=> Null;
+			Sound::InitForPlayer(Player);
+		}
+		
+		foreach (Player in Spectators)
+		{
+			declare AtkScore for Player = 0;
+			declare DefScore for Player = 0;
+			declare HitScore for Player = 0;
+			
+			AtkScore = 0;
+			DefScore = 0;
+			HitScore = 0;
+		}
+		
+		//init sounds
+		for (Clan, 1, 2)
+		{
+			Sound::PreCacheSound("Flag.Drop." ^ Clan);
+			Sound::PreCacheSound("Flag.Return." ^ Clan);
+			Sound::PreCacheSound("Flag.Take." ^ Clan);
+			Sound::PreCacheSound("Team.Lead." ^ Clan);
+			Sound::PreCacheSound("Team.Score." ^ Clan);
+			Sound::PreCacheSound("Team.WinRound." ^ Clan);
+			Sound::PreCacheSound("Team.WinMatch." ^ Clan);
+		}
+		
+		Sound::PreCacheSound("Overtime");
+		Multikill::PreCacheSounds();
+			
+		declare spawnBlocks = [1=>CSmBlockSpawn[], 2=>CSmBlockSpawn[]];
+		G_BlockSpawnQueue = [1=>Ident[], 2=>Ident[]];
+		
+		for(Clan, 1, 2)
+		{
+			foreach(SpawnId in G_BlockSpawnQueue[Clan])
+			{
+				spawnBlocks[Clan].add(BlockSpawns[SpawnId]);
+			}
+		}
+		
+		if (WarmUpDuration > 0)
+		{
+			DoWarmUp(spawnBlocks[1], spawnBlocks[2]);
+			sleep(2000);
+		}
+		
+		UIManager.UIAll.UISequence = CUIConfig::EUISequence::Intro;
+		UIManager.UIAll.SendNotice(
+			_("New match"), CUIConfig::ENoticeLevel::MatchInfo, 
+			Null, CUIConfig::EAvatarVariant::Default, 
+			CUIConfig::EUISound::StartRound, 0
+		);
+		
+		ClanScores[1] = 0;
+		ClanScores[2] = 0;
+		
+		foreach (Player in AllPlayers)
+		{
+			declare NewPlayer for Player = True;
+			declare NewSpectator for Player = True;
+			
+			NewPlayer = True;
+			NewSpectator = True;
+		}
+		
+		while( Victory::NoMatchWinner() && !MatchEndRequested ) 
+		{
+			declare LastFlagTick = Now;
+			foreach (Player in Players)
+			{
+				declare UI = UIManager.GetUI(Player);
+					
+				if (UI != Null)
+				{
+					Tabs::UseTabs(UI, "ScoresTab");
+					Tabs::AlwaysShowScore(UI, True);
+					declare netwrite Boolean HasFlag for UI;
+					
+					HasFlag = False;
+				}
+			}
+			ScoresTable::StartMatch();
+			XmlRpc::BeginRound(Round);
+			Multikill::ResetSprees();
+			if (WeaponMode == 6)
+			{
+				Pickup::SpawnItems();
+			}
+			
+			declare LastTimelimit = TimeLimit;
+			Captures = [ 1 => 0, 2 => 0];
+			UIManager.UIAll.UISequence = CUIConfig::EUISequence::Playing;
+			UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
+
+			Score::RoundBegin();
+			Airshot::RoundBegin();
+			Victory::RoundBegin();
+			StartTime = Now + RespawnTime;
+			---EndTime---
+				
+			SM::SetupDefaultVisibility();
+
+			declare LatestUITick = Now;
+			
+			
+			Multikill::ResetFirstBlood();
+			MapSidesIndices = [1=>(Round % 2)+1, 2=>2-(Round % 2)];
+			G_BlockSpawnQueue = [1=>Ident[], 2=>Ident[]];
+			Poles = [1=>SM::GetPole("Goal", MapSidesIndices[1]), 2 => SM::GetPole("Goal", MapSidesIndices[2])];
+			FlagCarrier = [1=>NullId, 2=>NullId];
+			FlagDropTimes = [1=>0, 2=>0];
+			declare Overtime = False;
+			declare HalfTimeDone = False;
+			
+			FlagObjects = [ 1 => ObjectCreate(FlagModels[1]), 2 => ObjectCreate(FlagModels[2])];
+			
+			UpdateBlockSpawnQueue(1);
+			UpdateBlockSpawnQueue(2);
+			
+			Update3dMarkers();
+			
+			for(Clan, 1, 2)
+			{
+				declare Integer PickupType for FlagObjects[Clan];
+				PickupType = -1;
+				foreach(SpawnId in G_BlockSpawnQueue[MapSidesIndices[Clan]])
+				{
+					BlockSpawns[SpawnId].Base.IsActive = True;
+					BlockSpawns[SpawnId].Base.Clan = Clan; //WTF IS WRONG HERE?! -> Pickups?!
+				}
+			}
+			BotPlayers.clear();
+			BotCount.clear();
+			DestroyAllBotPlayers();
+			
+			for (Clan, 1, 2)
+			{
+				if (ClansNbPlayers[Clan] < BotsFill)
+				{
+					for (I, 0, BotsFill - ClansNbPlayers[Clan] - 1)
+					{
+						BotPlayers.add(_CreateBotPlayer(Clan, Now + RespawnTime + I * 500));
+					}
+				}
+			}
+			
+			foreach (Clan=>Pole in Poles)
+			{
+				Pole.Gauge.Max = 100;
+				Pole.Gauge.Value = 100;
+				Pole.Gauge.Clan = Clan;
+				Pole.Captured = True;
+				
+				FlagObjects[Clan].SetPositionAndVel(Pole.Position, <0., 0., 0.>);
+			}
+			+++RoundBegin+++
+			declare Ident[] InitedPlayers;
+			while ( Victory::NoRoundWinner() && !MatchEndRequested )
+			{
+				
+				foreach (Player in Players)
+				{
+					declare UI <=> UIManager.GetUI(Player);
+					declare NewPlayer for Player = True;
+					declare NewSpectator for Player = True;
+					
+					if (NewPlayer)
+					{
+						+++NewPlayer+++
+						NewPlayer = False;
+						NewSpectator = True;
+					}
+				}
+			
+				foreach(Player in Spectators)
+				{
+					declare NewPlayer for Player = True;
+					declare NewSpectator for Player = True;
+					
+					if (NewSpectator)
+					{
+						+++NewSpectator+++
+						NewPlayer = True;
+						NewSpectator = False;
+					}
+				}
+				
+				if (LastTimelimit != TimeLimit)
+				{
+					if(TimeLimit == -1)
+					{
+						EndTime = -1;
+					}
+					else
+					{
+						EndTime = StartTime + TimeLimit;
+					}
+				}
+				
+				LastTimelimit = TimeLimit;
+				
+				foreach(Player in Players)
+				{
+					declare UI <=> UIManager.GetUI(Player);
+					
+					if(UI != Null)
+					{
+						declare netread DropFlag for UI = False;
+						declare netwrite HasFlag for UI = False;
+						
+						if (DropFlag)
+						{
+							HasFlag = False;
+							DropFlag(Player);
+						}
+					}
+				}
+				
+				foreach(Event, PendingEvents)
+				{	
+					if( Event.Type == CSmModeEvent::EType::OnHit )
+					{
+						if (Event.Shooter != Null)
+						{							
+							if (Pickup::HasDoubleDamage(Event.Shooter))
+							{
+								Event.Damage *= 2;
+							}
+						}		
+						if ( Event.Shooter == Null || Event.Victim == Null || Event.Shooter == Event.Victim )
+						{
+							if(Event.Victim != Null && SelfDamage)
+							{
+								if(Event.Victim.Armor <= Event.Damage && Event.Victim.Id == FlagCarrier[Event.Victim.CurrentClan])
+								   DropFlag(Event.Victim);
+								Event.Victim.Armor -= Event.Damage;
+							}
+							Discard(Event);
+						}
+						else if ( UseClans && Event.Shooter.CurrentClan == Event.Victim.CurrentClan)
+						{
+							if (TeamDamage == 1)
+							{
+								if (Event.Victim.Armor <= Event.Damage)
+								{
+									DropFlag(Event.Victim);
+								}
+								Event.Victim.Armor -= Event.Damage;
+							}
+							else if(TeamDamage == 2)
+							{
+								if (Event.Shooter.Armor <= Event.Damage)
+								{
+									DropFlag(Event.Shooter);
+								}
+								Event.Shooter.Armor -= Event.Damage;
+							}
+							Discard(Event);
+						}
+						else
+						{
+							declare HitScore for Event.Shooter = 0;
+							if (Multikill::IsHeadShot(Event))
+							{
+								HitScore += 2 * KillScore;
+								Multikill::OnHeadShot(Event.Shooter);
+								Event.Damage = 1000;
+								Event.ShooterPoints = 2 * KillScore;
+								Score::AddPoints( Event.Shooter, 2 * KillScore);
+								Airshot::OnHit(Event.Shooter, Event.Victim);
+								XmlRpc::OnHit(Event);
+							}
+							else if(Event.Damage > 0)
+							{
+								HitScore += KillScore;
+								Score::AddPoints( Event.Shooter, KillScore);
+								Airshot::OnHit(Event.Shooter, Event.Victim);
+								XmlRpc::OnHit(Event);
+							}
+							for (Clan, 1, 2)
+							{
+								if (MathLib::Distance(Poles[Clan].Position, Event.Victim.Position) < FlagZoneSize)
+								{
+									if (Clan == Event.Shooter.CurrentClan)
+									{
+										declare DefScore for Event.Shooter = 0;
+										DefScore += 1;
+										if (!Event.Shooter.IsBot)
+										{
+											Top::SetRecord(Event.Shooter, "Def", TextLib::ToText(DefScore), -DefScore);
+											ScoresTable::SetCustom3(Event.Shooter, TextLib::ToText(DefScore));
+											Lang::SendStatusMessage(Event.Shooter, "hint.defender", 2000, PriorityHint);
+										}
+									}
+									else
+									{
+										declare AtkScore for Event.Shooter = 0;
+										AtkScore += 1;
+										if (!Event.Shooter.IsBot)
+										{
+											Top::SetRecord(Event.Shooter, "Atk", TextLib::ToText(AtkScore), -AtkScore);
+											ScoresTable::SetCustom2(Event.Shooter, TextLib::ToText(AtkScore));
+											Lang::SendStatusMessage(Event.Shooter, "hint.attacker", 2000, PriorityHint);
+										}
+									}
+								}
+							}
+							ScoresTable::SetCustom1(Event.Shooter, TextLib::ToText(HitScore));
+							
+							if (!Event.Shooter.IsBot)
+							{
+								Top::SetRecord(Event.Shooter, "Hit", TextLib::ToText(HitScore), -HitScore);
+							}
+							
+							if (Event.Damage >= Event.Victim.Armor)
+							{
+							  //Issue is here when a player is killed, Flad disapear
+								DropFlag(Event.Victim);
+							}
+							PassOn(Event);
+						}
+					}
+					else if (Event.Type == CSmModeEvent::EType::OnArmorEmpty)
+					{
+						if (Event.Victim != Null)
+						{
+							
+							/*if (DoubleDamagePickup + DoubleDamageTime > Now)
+							{
+								declare NewObject = ObjectCreate(PickupItems[6]);
+								declare Boolean TmpObject for NewObject;
+								declare Integer SpawnTime for NewObject;
+								declare Integer LifeTime for NewObject;
+								declare Integer PickupType for NewObject;
+								
+								PickupType = 6;
+								TmpObject = True;
+								LifeTime = Now - DoubleDamagePickup;
+								SpawnTime = Now;
+								NewObject.SetPosition(Event.Victim.Position);
+							}*/
+							
+							Pickup::RemoveDoubleDamage(Event.Victim);
+							Multikill::OnPlayerArmorEmpty(Event.Victim);
+							//PowerUp::ClearPowerups(Event.Victim);
+						}
+						if (Event.Shooter != Null)
+						{
+							Multikill::OnPlayerKill(Event.Shooter);
+						}
+						if ((Event.Victim == Event.Shooter || Event.Shooter == Null) && Event.Victim.Id == FlagCarrier[Event.Victim.CurrentClan])
+						{
+							if (!Event.Victim.IsBot)
+							{
+								declare netwrite HasFlag for UIManager.GetUI(Event.Victim) = False;
+								HasFlag = False;
+							}
+							//Offzone
+							
+							FlagCarrier[Event.Victim.CurrentClan] = NullId;
+							Poles[3 - Event.Victim.CurrentClan].Gauge.Value = 100;
+							Poles[3 - Event.Victim.CurrentClan].Captured = True;
+							Lang::SendBigMessage("flag.drop", 2000, PriorityDrop, PlayerName(Event.Victim), Teams[2 - Event.Victim.CurrentClan].ColorizedName);
+							XmlRpc.SendCallback("flagDrop", Event.Victim.Login);
+							FlagObjects[3 - Event.Victim.CurrentClan].SetPositionAndVel(Poles[3 - Event.Victim.CurrentClan].Position, <0., 0., 0.>);
+						}
+						PassOn(Event);						
+						XmlRpc::OnArmorEmpty(Event);
+					}
+					else if (Event.Type == CSmModeEvent::EType::OnCapture)
+					{
+						Discard(Event);
+					}
+					else if (Event.Type == CSmModeEvent::EType::OnPlayerTouchesObject)
+					{	
+						if(Event.Player == Null || Event.Player.SpawnStatus != CSmPlayer::ESpawnStatus::Spawned) continue; //dead players can't pickup flags ;)
+						declare Clan = -1;
+						for (TClan, 1, 2)
+						{
+							if (Event.Object.Id == FlagObjects[TClan].Id)
+							{
+								Clan = TClan;
+								break;
+							}
+						}
+						if (Clan > -1)
+						{
+							if(Event.Player.CurrentClan == Clan
+								&& !Poles[Clan].Captured
+								&& FlagCarrier[3-Clan] == NullId)
+							{
+								declare DefScore for Event.Player = 0;
+								DefScore += ReturnScore;
+								ScoresTable::SetCustom3(Event.Player, TextLib::ToText(DefScore));
+								if (!Event.Player.IsBot)
+								{
+									Top::SetRecord(Event.Player, "Def", TextLib::ToText(DefScore), -DefScore);
+								}
+								Poles[Clan].Gauge.Value = 100;
+								Poles[Clan].Captured = True;
+								FlagDropTimes[Clan] = 0;
+								Score::AddPoints(Event.Player, ReturnScore);
+								Lang::SendBigMessage("flag.return", 2000, PriorityReturn, PlayerName(Event.Player), Teams[Clan - 1].ColorizedName);
+								XmlRpc.SendCallback("flagReturn", Event.Player.Login);
+								Event.Object.SetPositionAndVel(Poles[Clan].Position, <0., 0., 0.>);
+								//Sound::PlaySoundAll("""Flag.Return.{{{3 - Clan}}}""");
+								Sound::PlaySoundClan("Flag.Return.Ally", Clan);
+								Sound::PlaySoundClan("Flag.Return.Enemy", 3 - Clan);
+							}
+							else if (FlagCarrier[3 - Clan] == NullId && Event.Player.CurrentClan != Clan)
+							{
+								declare FlagDropTime for Event.Player = 0;
+								
+								if(FlagDropTime + 1000 < Now)
+								{
+									TakeFlag(Event.Player, False);
+								}
+							}
+							
+							Discard(Event);
+						}
+						else
+						{
+							declare PickupType for Event.Object = -1;
+							
+							if (PickupType > -1)
+							{
+								if (Pickup::HandlePickup(Event.Object, Event.Player))
+								{
+									PassOn(Event);
+								}
+								else
+								{
+									Discard(Event);
+								}
+							}
+						}
+					}
+					else if (Event.Type == CSmModeEvent::EType::OnPlayerRequestRespawn)
+					{
+						XmlRpc::OnPlayerRequestRespawn(Event);
+						PassOn(Event);
+					}
+					else if (Event.Type == CSmModeEvent::EType::OnActionEvent && WeaponMode >= 6)
+					{
+						Pickup::SwitchWeapon(Event.Player, Event.ActionSlot);
+					}
+					else if (Event.Type == CSmModeEvent::EType::OnPlayerRequestActionChange)
+					{
+						declare By = Event.ActionChange;
+						if (By < -1)
+						{
+							By = -1;
+						}
+						else if (By > 1)
+						{
+							By = 1;
+						}
+						Pickup::SwitchWeaponBy(Event.Player, By);
+						Discard(Event);
+					}
+					else if (Event.Type == CSmModeEvent::EType::OnCommand)
+					{
+						log ("Command: " ^ Event.CommandName);
+						+++OnCommand+++
+					}
+					else if (Event.Type == CSmModeEvent::EType::OnShoot)
+					{
+						Pickup::OnShoot(Event.Shooter);
+						XmlRpc::OnShoot(Event);
+					}
+					else
+					{
+						PassOn(Event);
+					}
+				
+				}
+				
+				if (Now - LastFlagTick > FlagUpdateInterval)
+				{
+					UpdateFlagPositions();
+					LastFlagTick = Now;
+				}
+				if (LastBotUpdate + BotUpdateInterval < Now)
+				{
+					UpdateBots();
+					LastBotUpdate = Now;
+				}
+				if (KillLeavers)
+				{
+					KillLeavers();
+				}
+				
+				+++Update+++
+				for(Clan, 1, 2)
+				{
+					declare PlayerId = FlagCarrier[Clan];
+					
+					if(PlayerId != NullId && Players.existskey(PlayerId))
+					{
+						declare Player <=> Players[PlayerId];
+						if(Player.SpawnStatus != CSmPlayer::ESpawnStatus::Spawned || Player.RequestedClan != Player.CurrentClan)
+						{
+							if(Overtime && OvertimeMode == 0)
+							{
+								Captures[3 - Clan] += 1;
+								Victory::SetRoundWinnerIfNoWinner(3 - Clan);
+								break;
+							}
+							
+							DropFlag(Player);
+						}
+					}
+					else if (PlayerId != NullId && !AllPlayers.existskey(PlayerId))
+					{
+						if(Overtime && OvertimeMode == 0)
+						{
+							Captures[3 - Clan] += 1;
+							Victory::SetRoundWinnerIfNoWinner(3 - Clan);
+							break;
+						}
+						
+						FlagDropTimes[3 - Clan] = 0;
+						Poles[3 - Clan].Gauge.Value = 100;
+						Poles[3 - Clan].Captured = True;
+						
+						Lang::SendBigMessage("flag.reset", 2000, PriorityReset, Teams[Clan - 1].ColorizedName, "");
+						XmlRpc.SendCallback("flagReset", TextLib::ToText(Clan));
+						
+						FlagCarrier[Clan] = NullId;
+						FlagObjects[3 - Clan].SetPositionAndVel(Poles[3 - Clan].Position, <0., 0., 0.>);
+					}
+					
+					if(FlagDropTimes[Clan] > 0 && FlagDropTimes[Clan] + FlagResetTime <= Now)
+					{
+						FlagDropTimes[Clan] = 0;
+						Poles[Clan].Gauge.Value = 100;
+						Poles[Clan].Captured = True;
+						
+						Lang::SendBigMessage("flag.reset", 2000, PriorityReset, Teams[Clan - 1].ColorizedName, "");
+						XmlRpc.SendCallback("flagReset", TextLib::ToText(Clan));
+						FlagObjects[Clan].SetPositionAndVel(Poles[Clan].Position, <0., 0., 0.>);
+					}
+					/*else if(FlagDropTimes[Clan] > 0)
+					{
+						declare GaugeText = TextLib::ToText((0. + Now - FlagDropTimes[Clan]) / FlagResetTime);
+					}*/
+				}
+
+				SM::UnspawnPlayersChangingClan();
+				///////////////////////////////////////////////////
+				// Spawning players 		
+				foreach(Player in Players) {
+					if (Player.SpawnStatus != CSmPlayer::ESpawnStatus::NotSpawned || Player.User.IsFakeUser) continue;
+					if (!Player.IsFakePlayer)
+					{
+						declare netwrite HasFlag for Player = False;
+						HasFlag = False;
+					}
+					declare CurrentWeapon for Player = 1;
+					CurrentWeapon = 1;
+					SetPlayerReloadAllWeapons(Player, InactiveWeaponReload);
+					_SpawnPlayer(Player, Now + RespawnTime);
+					Player.IsHighlighted = True;
+				}
+				
+				foreach(Player in BotPlayers)
+				{
+					if (Player.SpawnStatus != CSmPlayer::ESpawnStatus::NotSpawned) continue;
+					if (!Player.IsFakePlayer)
+					{
+						declare netwrite HasFlag for Player = False;
+						HasFlag = False;
+					}
+					_SpawnPlayer(Player, Now + RespawnTime);
+				}
+				
+				Pickup::RespawnItems();
+
+				for(Clan, 1, 2)
+				{
+					declare Pole <=> Poles[Clan];
+					
+					if(Pole.Gauge.Value >= 100)
+					{
+						foreach(PlayerId in Pole.Sector.PlayersIds)
+						{
+							declare Player <=> AllPlayers[PlayerId];
+							
+							if (Player.CurrentClan != Clan)
+							{
+								Pole.Gauge.Value = 0;
+								Pole.Captured = False;
+								
+								TakeFlag(Player, True);
+								if(Overtime && OvertimeMode == 0)
+								{
+									Captures[3 - Clan] += 1;
+									Victory::SetRoundWinnerIfNoWinner(3 - Clan);
+								}
+								break;
+							}
+							else if(Player.Id == FlagCarrier[Player.CurrentClan])
+							{
+								declare Integer LockedTill for FlagObjects[3 - Clan];
+								declare AtkScore for Player = 0;
+								AtkScore += CaptureScore;
+								ScoresTable::SetCustom2(Player, TextLib::ToText(AtkScore));
+								LockedTill = Now + 100;
+								if (!Player.IsBot)
+								{
+									Top::SetRecord(Player, "Atk", TextLib::ToText(AtkScore), -AtkScore);
+									declare netwrite HasFlag for UIManager.GetUI(Player) = False;
+									HasFlag = False;
+								}
+								
+								if (Clan == 1)
+								{
+									UIManager.UIAll.ScoreSummary_Points1 += 1;
+								}
+								else
+								{
+									UIManager.UIAll.ScoreSummary_Points2 += 1;
+								}
+							
+								if(Overtime)
+								{
+									Captures[Clan] += 1;
+									Victory::SetRoundWinnerIfNoWinner(Clan);
+									break;
+								}
+								FlagObjects[3 - Clan].SetPositionAndVel(Poles[3 - Clan].Position, <0., 0., 0.>);
+								FlagCarrier[Clan] = NullId;
+								Poles[3 - Clan].Gauge.Value = 100;
+								Poles[3 - Clan].Captured = True;
+								Score::AddPoints( Player, CaptureScore);
+								Lang::SendBigMessage("flag.capture", 2000, PriorityCapture, PlayerName(Player), Teams[2 - Clan].ColorizedName);
+								
+								/*if (Captures[Clan] == Captures[3 - Clan])
+								{
+									Sound::PlaySoundAll("Team.Lead." ^ 3 - Clan); //TODO: fix filenames
+								}
+								else
+								{
+									Sound::PlaySoundAll("Team.Score." ^ 3 - Clan);
+								}*/
+								Sound::PlaySoundClan("Flag.Capture.Ally", 3 - Clan);
+								Sound::PlaySoundClan("Flag.Capture.Enemy", Clan);
+								
+								Captures[Clan] += 1;
+								XmlRpc.SendCallback("poleCapture", Player.Login);
+								
+								if(Captures[Clan] >= ScoreLimit && ScoreLimit > 0)
+								{
+									Victory::SetRoundWinnerIfNoWinner(Clan);
+								}
+							}
+						}
+					}
+				}
+				
+				///////////////////////////////////////////////////
+				// Victory
+				if(Now >= EndTime && EndTime > -1 && !Overtime) {
+					if(Captures[1] > Captures[2])
+					{
+						Victory::SetRoundWinnerIfNoWinner(1);
+					}
+					else if(Captures[2] > Captures[1])
+					{
+						Victory::SetRoundWinnerIfNoWinner(2);
+					}
+					else if(FlagCarrier[1] != NullId && FlagCarrier[2] == NullId && OvertimeMode == 0)
+						Victory::SetRoundWinnerIfNoWinner(1);
+					else if(FlagCarrier[1] == NullId && FlagCarrier[2] != NullId && OvertimeMode == 0)
+						Victory::SetRoundWinnerIfNoWinner(2);
+					else if(OvertimeMode < 2 && OldEndTime < -1)
+					{
+						Overtime = True;
+						UIManager.UIAll.CountdownEndTime = Now;
+						EndTime = -1;
+						Lang::SendBigMessage("game.overtime", 2000, PriorityOvertime);
+						Sound::PlaySoundAll("Overtime");
+					}
+					else
+					{
+						Victory::SetRoundDrawIfNoWinner();
+					}
+				}
+				
+				///////////////////////////////////////////////////
+				// UI				
+				if ( Now > LatestUITick + UITickPeriod)
+				{
+					Top::Loop();
+					LatestUITick = Now;
+					+++UITick+++
+					declare ClanTotalRatios = [1=>0, 2=>0];
+					UpdateSettingsLayer();
+					LayerRoundInfo.ManialinkPage = GetMLRoundInfo();
+					
+					declare tmp = ((Now - StartTime) / 12000) % 3;
+					
+					foreach(Player in Spectators)
+					{
+						declare CUILayer LayerEvents for Player = Null;
+						
+						LayerEvents = Null;
+					}
+					
+					foreach (Player in Spectators)
+					{
+						if (WeaponMode >= 6 && !NeedFallback)
+						{
+							Pickup::UpdateML(Player);
+							Sound::AddUILayer(Player);
+						}
+					}
+					
+					foreach(Player in Players)
+					{
+						if (WeaponMode >= 6 && !NeedFallback)
+						{
+							Pickup::UpdateML(Player);
+						}
+						declare CUILayer LayerEvents for Player = Null;
+						
+						if(LayerEvents == Null)
+						{
+							LayerEvents <=> UIManager.UILayerCreate();
+							LayerEvents.ManialinkPage = GetMLEvents(Player.User);
+						}
+						
+						if (!Player.IsFakePlayer)
+						{
+							declare PlayerUI <=> UIManager.GetUI(Player);
+							PlayerUI.UILayers.add(LayerEvents);
+							Sound::AddUILayer(Player);
+						}
+					}
+					
+					//UIManager.UIAll.UILayers.clear();
+					UIManager.UIAll.UILayers.add(LayerRoundInfo);
+					UIManager.UIAll.UILayers.add(LayerVersion);	
+					UIManager.UIAll.UILayers.add(LayerMarkers);
+					UIManager.UIReplayLayers.add(LayerRoundInfo);
+				}
+				yield;
+				///////////////////////////////////////////////////				
+			}
+
+			///////////////////////////////////////////////////	
+			// end round sequence	
+			+++EndRound+++
+			
+			sleep(4000);
+			for (Clan, 1, 2)
+			{
+				if (Victory::IsRoundWinner(Clan))
+				{
+					Sound::PlaySoundClan("Team.Round.Win", Clan);
+					Sound::PlaySoundClan("Team.Round.Lost", 3 - Clan);
+				}
+			}
+			foreach(Player in Players) {
+				declare UI <=> UIManager.GetUI(Player);
+				if (UI==Null) continue;
+				
+				declare CUILayer LayerEvents for Player;
+				
+				UIManager.UILayerDestroy(LayerEvents);
+				
+				LayerEvents <=> Null;
+				
+				UI.BigMessage = "";
+				UI.BigMessageSound = CUIConfig::EUISound::Silence;
+			
+				if (Victory::IsRoundWinner(1))
+				{
+					UI.BigMessage = TextLib::Compose(Lang::GetUserTranslation("round.win", Player.User), Lang::GetUserTranslation("team.name1", Player.User));
+				}
+				else if(Victory::IsRoundWinner(2))
+				{
+					UI.BigMessage = TextLib::Compose(Lang::GetUserTranslation("round.win", Player.User), Lang::GetUserTranslation("team.name2", Player.User));
+				}
+				else
+				{
+					UI.BigMessage = Lang::GetUserTranslation("round.draw", Player.User);
+				}
+			}
+			
+			if (Victory::IsRoundWinner(1))
+			{
+				ClanScores[1] += 1;
+				UIManager.UIAll.ScoreSummary_MatchPoints1 += 1;
+			}
+			else if(Victory::IsRoundWinner(2))
+			{
+				ClanScores[2] += 1;
+				UIManager.UIAll.ScoreSummary_MatchPoints2 += 1;
+			}
+			
+			sleep(1000);
+			
+			if (OldEndTime < -1)
+			{
+				Victory::SetMatchWinnerFromScore(WinLimit, 0, RoundLimit);
+			}
+			else
+			{
+				Victory::SetMatchWinnerFromScore(1, 0, RoundLimit);
+				MatchEndRequested = True;
+			}
+			
+			UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::ForcedVisible;
+			UIManager.UIAll.UISequence = CUIConfig::EUISequence::EndRound;				
+			
+
+			foreach(Player in Players) {									
+				UnspawnPlayer(Player);					
+			}
+
+			sleep(4000);
+			UIManager.UIAll.OverlayScoreSummary = False;
+						
+			+++RoundEnd+++	
+			Score::RoundEnd();
+			Airshot::RoundEnd();
+			Victory::RoundEnd();	
+			
+			Round += 1;
+				
+		}
+
+		///////////////////////////////////////////////////	
+		// end match sequence	
+		XmlRpc::EndMap(NextMapIndex);				
+			
+		Users_DestroyAllFakes();
+		ScoresTable::EndMatch();
+		UIManager.UIAll.UISequence = CUIConfig::EUISequence::Outro;
+		
+		UIManager.UIAll.BigMessageSound = CUIConfig::EUISound::EndRound;
+		declare WinnerClan = -1;
+		if ( Victory::IsMatchWinner(1) ) {
+			WinnerClan = 1;
+		} else if (  Victory::IsMatchWinner(2) ) {
+			WinnerClan = 2;
+		}
+		
+		Sound::PlaySoundClan("Team.Match.Win", WinnerClan);
+		Sound::PlaySoundClan("Team.Match.Lost", 3 - WinnerClan);
+		
+		foreach(Player in Players)
+		{
+			declare UI <=> UIManager.GetUI(Player);
+			if(WinnerClan > -1)
+			{
+				UI.BigMessage = TextLib::Compose(Lang::GetUserTranslation("game.win", Player.User), Teams[WinnerClan - 1].ColorizedName);
+			}
+			else
+				UI.BigMessage = TextLib::Compose(Lang::GetUserTranslation("game.draw", Player.User));
+		}
+		MatchNumber += 1;
+				
+		sleep(6*1000);
+		
+		if(WinnerClan != -1)
+		{
+			// Reset score clans
+			foreach (Score in Scores) { declare Integer Clan for Score; Clan = 0; }	
+			foreach (Player in Players) {
+				if (Player.Score == Null) continue;
+				declare Integer Clan for Player.Score;
+				Clan = Player.CurrentClan;				
+			}
+			// Sort scores by clan
+			declare ClanScoresSorted = [1=>CSmScore[], 2=>CSmScore[]];	
+			foreach (Score in Scores) {
+				Score.LadderRankSortValue = 1000;
+				declare Integer Clan for Score;
+				if (Clan != 1 && Clan != 2) continue;
+				ClanScoresSorted[Clan].add(Score);				
+			}	
+			declare Shift = [1=>1, 2=>1];
+			Shift[3 - WinnerClan] = 2;			
+			foreach(Index => Score in ClanScoresSorted[1]) {Score.LadderRankSortValue = Index * 2 + Shift[1];}
+			foreach(Index => Score in ClanScoresSorted[2]) {Score.LadderRankSortValue = Index * 2 + Shift[2];}			
+			
+			Ladder_CloseMatch();
+		} 
+		else {
+			Ladder_CancelMatch();
+		}
+		
+		
+		+++MatchEnd+++
+		Score::MatchEnd();	
+		Airshot::MatchEnd();
+		Victory::MatchEnd();	
+		
+		UIManager.UIAll.BigMessage = "";
+		UIManager.UIAll.UISequence = CUIConfig::EUISequence::Podium;				
+		
+		
+		sleep(5000);
+
+		UIManager.UIAll.ScoreTableVisibility = CUIConfig::EVisibility::Normal;
+
+		sleep(1000);
+			
+		UIManager.UIAll.UILayers.clear();
+		MatchEndRequested = False;
+
+		UnloadMap();
+	}
+	
+	UIManager.UILayerDestroy(LayerRoundInfo);
+}

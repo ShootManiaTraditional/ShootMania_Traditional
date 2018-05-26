@@ -1,0 +1,160 @@
+#Include "TextLib" as TextLib
+#Include "Libs/Nadeo/Message.Script.txt" as Message
+
+declare Text[Text][Text] Translations;
+declare Text DefaultLang;
+
+Void AddTranslation(Text _Name, Text _Lang, Text _Translation)
+{
+	if( !Translations.existskey(_Lang))
+	{
+		Translations[_Lang] = Text[Text];
+	}
+	Translations[_Lang][_Name] = _Translation;
+}
+
+Void LoadLanguage(Text FileName)
+{
+	declare Request = Http.CreateGet("file://Media/" ^ FileName);
+	
+	while (!Request.IsCompleted)
+	{
+		yield;
+	}
+	
+	declare Document = Xml.Create(Request.Result);
+	if (Document == Null || Document.Root == Null)
+	{
+		log("ERROR: Language file is invalid or does not exist: " ^ FileName);
+	}
+	else if (Document.Root.Name != "translation")
+	{
+		log("WARNING: Not a valid language file: " ^ FileName);
+	}
+	else
+	{
+		declare Lang = Document.Root.GetAttributeText("lang", "");
+		if(Lang == "")
+		{
+			log("ERROR: No language given: " ^ FileName);
+		}
+		else
+		{
+			foreach(Node in Document.Root.Children)
+			{
+				AddTranslation(Node.Name, Lang, Node.TextContents);
+			}
+		}
+	}
+	
+	Http.Destroy(Request);
+}
+
+Text GetTranslation(Text _Name, Text _Lang)
+{
+	if (Translations.existskey(_Lang) && Translations[_Lang].existskey(_Name))
+	{
+		return Translations[_Lang][_Name];
+	}
+	else if (Translations.existskey(DefaultLang) && Translations[DefaultLang].existskey(_Name))
+	{
+		return Translations[DefaultLang][_Name];
+	}
+	return _Name;
+}
+
+Void SetDefaultLang(Text _Lang)
+{
+	DefaultLang = _Lang;
+}
+
+Text GetUserTranslation(Text _Name, CUser _User)
+{
+	return GetTranslation(_Name, _User.Language);
+}
+
+//deprecated, use SendBigMessage instead
+Void SendNotice(Text _Text, CUIConfig::ENoticeLevel _NoticeLevel, CUser _User, CUIConfig::EAvatarVariant _Avatar, CUIConfig::EUISound _Sound, Integer _SoundVariant, Text _Replace1, Text _Replace2)
+{
+	foreach(Player in Players)
+	{
+		if(Player.IsFakePlayer) continue;
+		declare UI <=> UIManager.GetUI(Player);
+		UI.SendNotice(TextLib::Compose(GetUserTranslation(_Text, Player.User), _Replace1, _Replace2) , _NoticeLevel, _User, _Avatar, _Sound, _SoundVariant);
+	}
+	
+	foreach(Spectator in Spectators)
+	{
+		if(Spectator.IsFakePlayer) continue;
+		declare UI <=> UIManager.GetUI(Spectator);
+		UI.SendNotice(TextLib::Compose(GetUserTranslation(_Text, Spectator.User), _Replace1, _Replace2) , _NoticeLevel, _User, _Avatar, _Sound, _SoundVariant);
+	}
+}
+
+Void Init()
+{
+	SetDefaultLang("en");
+}
+
+Void SendBigMessage(CSmPlayer _Player, Text _Message, Integer _Duration, Integer _Priority, Text Replace1, Text Replace2)
+{
+	if (!_Player.IsBot)
+	{
+		UIManager.GetUI(_Player).SendNotice(TextLib::Compose(GetUserTranslation(_Message, _Player.User), Replace1, Replace2), CUIConfig::ENoticeLevel::MatchInfo, Null, CUIConfig::EAvatarVariant::Default, CUIConfig::EUISound::Silence, 0);
+		//Message::SendBigMessage(_Player, TextLib::Compose(GetUserTranslation(_Message, _Player.User), Replace1, Replace2), _Duration, _Priority);
+	}
+}
+
+Void SendBigMessage(Text _Message, Integer _Duration, Integer _Priority, Text Replace1, Text Replace2)
+{
+	foreach (Player in Players)
+	{
+		SendBigMessage(Player, _Message, _Duration, _Priority, Replace1, Replace2);
+	}
+	
+	foreach (Spectator in Spectators)
+	{
+		SendBigMessage(Spectator, _Message, _Duration, _Priority, Replace1, Replace2);
+	}
+}
+
+Void SendBigMessage(Text _Message, Integer _Duration, Integer _Priority)
+{
+	SendBigMessage(_Message, _Duration, _Priority, "", "");
+}
+
+Void SendBigMessage(CSmPlayer _Player, Text _Message, Integer _Duration, Integer _Priority)
+{
+	SendBigMessage(_Player, _Message, _Duration, _Priority, "", "");
+}
+
+Void SendStatusMessage(CSmPlayer Player, Text _Message, Integer _Duration, Integer _Priority, Text Replace1, Text Replace2)
+{
+	if (!Player.IsBot)
+	{
+		Message::SendStatusMessage(Player, TextLib::Compose(GetUserTranslation(_Message, Player.User), Replace1, Replace2), _Duration, _Priority);
+	}
+}
+
+Void SendStatusMessage(Text _Message, Integer _Duration, Integer _Priority, Text Replace1, Text Replace2)
+{
+	foreach (Player in Players)
+	{
+		SendStatusMessage(Player, _Message, _Duration, _Priority, Replace1, Replace2);
+	}
+	
+	foreach (Spectator in Spectators)
+	{
+		SendStatusMessage(Spectator, _Message, _Duration, _Priority, Replace1, Replace2);
+	}
+}
+
+Void SendStatusMessage(CSmPlayer _Player, Text _Message, Integer _Duration, Integer _Priority)
+{
+	SendStatusMessage(_Player, _Message, _Duration, _Priority, "", "");
+}
+
+Void SendStatusMessage(Text _Message, Integer _Duration, Integer _Priority)
+{
+	SendStatusMessage(_Message, _Duration, _Priority, "", "");
+}
